@@ -1,0 +1,7 @@
+folium
+geopandas
+gradio
+minio
+pandas
+rasterio
+shapely
