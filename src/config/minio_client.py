@@ -12,9 +12,9 @@ def get_src_minio_client() -> Minio:
         Minio: A configured Minio client.
     """
     # Use source MinIO credentials
-    endpoint=f"{os.environ.get('SOURCE_MINIO_HOST')}:{os.environ.get('SOURCE_MINIO_PORT')}"
-    access_key=os.environ.get("SOURCE_MINIO_ACCESS_KEY")
-    secret_key=os.environ.get("SOURCE_MINIO_SECRET_KEY")
+    endpoint=f"{os.environ.get('MINIO_HOST')}:{os.environ.get('MINIO_PORT')}"
+    access_key=os.environ.get("MINIO_ACCESS_KEY")
+    secret_key=os.environ.get("MINIO_SECRET_KEY")
 
     return Minio(
         endpoint=endpoint,
