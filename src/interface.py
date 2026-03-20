@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # --- 1. Multilingual Logic ---
 def load_translations():
     try:
-        df = pd.read_csv("assets/multilanguage.csv", index_col='index')
+        df = pd.read_csv("src/assets/multilanguage.csv", index_col='index')
         return df.to_dict()
     except:
         # Fallback if file doesn't exist yet
@@ -45,11 +45,9 @@ def create_map():
     return map_html
 
 # --- 3. UI Layout ---
-df = pd.read_csv("assets/multilanguage.csv", index_col="index")
 with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
     # State management for language
     lang_state = gr.State("en")
-
     with gr.Row():
         lang_selector = gr.Radio(choices=["es", "en"], value="es", label="Language / Idioma")
     
@@ -65,13 +63,20 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
                 choices=["Product A", "Product B", "Product C", "Product D", "Product E"],
                 label="Catalogue Product"
             )
+            
+            # Dates
+            today = datetime.now()
+            year_ago = today - timedelta(days=365)
+            
+            start_date = gr.DateTime(include_time=False, label="Start Date", value=year_ago.strftime('%Y-%m-%d'))
+            end_date = gr.DateTime(include_time=False, label="End Date", value=today.strftime('%Y-%m-%d'))
 
             geom_type = gr.Radio(
                 choices=["GeoJSON Upload", "Sigpac Cadastral", "Draw on Map"],
                 label="Geometry Input",
                 value="GeoJSON Upload"
             )
-            
+
             # Conditional inputs for geometry
             file_input = gr.File(label="Upload GeoJSON", visible=True)
             sigpac_input = gr.Textbox(label="Sigpac Reference", placeholder="Prov/Mun/Pol/Par...", visible=False)
@@ -80,17 +85,10 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             map_box = gr.HTML(create_map(), visible=False)
             # Hidden textbox to receive JS geometry data
             hidden_geom_data = gr.Textbox(visible=False)
-
-            # Dates
-            today = datetime.now()
-            year_ago = today - timedelta(days=365)
-            
-            start_date = gr.DateTime(include_time=False, label="Start Date", value=year_ago.strftime('%Y-%m-%d'))
-            end_date = gr.DateTime(include_time=False, label="End Date", value=today.strftime('%Y-%m-%d'))
             
 
         # --- Storage Configuration ---
-        with gr.Column(scale=1):
+        with gr.Column(scale=1, visible=False):
             storage_type = gr.Radio(
                 choices=["S3", "Azure"],
                 label="Provider",
@@ -159,11 +157,33 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
     # 4. Execution Logic
     def process_request(geom_choice, file, sigpac, map_data, start, end, product, storage, *args):
         # Implementation of your logic goes here
-        return f"Request received for {product} from {start} to {end} using {storage}."
+        return f"""Inputs:
+        geom_choice:
+            type: {type(geom_choice)}
+            {geom_choice}
+        file:
+            type: {type(file)}
+            {file}
+        sigpac:
+            type: {type(sigpac)}
+            {sigpac}
+        map_data:
+            type: {type(map_data)}
+            {map_data}
+        start:
+            type: {type(start)}
+            {start}
+        end:
+            type: {type(end)}
+            {end}
+        product:
+            type: {type(product)}
+            {product}
+        """
 
     get_data_btn.click(
         process_request,
-        inputs=[geom_type, file_input, sigpac_input, hidden_geom_data, start_date, end_date, product_select, storage_type],
+        inputs=[geom_type, file_input, sigpac_input, hidden_geom_data, start_date, end_date, product_select],
         outputs=[output_log]
     )
 
