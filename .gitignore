@@ -208,5 +208,5 @@ __marimo__/
 
 # Custom ignores
 /misc
-/res
+*/res
 *.kml
