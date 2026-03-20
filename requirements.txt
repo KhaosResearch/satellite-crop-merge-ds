@@ -1,3 +1,5 @@
+datetime
+dotenv
 folium
 geopandas
 gradio
@@ -5,3 +7,4 @@ minio
 pandas
 rasterio
 shapely
+structlog
