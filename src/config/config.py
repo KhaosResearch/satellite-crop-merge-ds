@@ -13,8 +13,8 @@ SENTINEL2_GRIDS_FILE = os.environ.get('SENTINEL2_GRIDS_FILE')
 PRODUCT_TYPE_FILE_IDS = {
     "images": {
         "10m": [ 'B02', 'B03', 'B04', 'B08'],
-        "20m": [ 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B08A', 'B11', 'B12'],
-        "60m": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B08A', 'B09', 'B10', 'B11', 'B12']
+        "20m": [ 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B11', 'B12'],
+        "60m": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B10', 'B11', 'B12']
     },
     "BareSoil": {"": ["bsi"]},
     "Senescence": {"": ["bri", "cri1"]},
