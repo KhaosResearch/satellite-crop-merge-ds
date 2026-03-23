@@ -12,7 +12,7 @@ from rasterio.io import MemoryFile
 from rasterio.mask import mask
 from rasterio.merge import merge
 
-from config.config import SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT
+from config.config import PRODUCT_TYPE_FILE_IDS, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT
 
 logger = structlog.get_logger()
 
@@ -105,77 +105,100 @@ def download_merge_crop_tile_files(
     try:
         saved_files = []
         geometry= geometry_gdf.geometry.values[0]
-        for year, month in year_months:
-            for tile in tiles_list:
-                datasets = []
-                temp_files = []
-                # Get al files in specific product-geometry_zone-date prefix
-                minio_product_prefix = os.path.join(product_key, tile, year, month)
-                product_dir_list = minio_client.list_objects(SOURCE_BUCKET, prefix=minio_product_prefix, recursive=True)
+        
+        if product_key not in ["images", "AOT", "TIC", "WVP"]:
+            product_prefix = os.path.join("indices", product_key)
+        else:
+            product_prefix = product_key
+        
+        product_config = PRODUCT_TYPE_FILE_IDS[product_key]
 
-                for obj  in product_dir_list:
-                    if not obj.object_name.endswith(".tif"):
-                        logger.warning(f"Skipping {obj.object_name}")
+
+        for subfolder, file_ids in product_config.items():
+            subfolder = f"R{subfolder}" if len(subfolder) > 0 else subfolder
+            os.path.join(product_prefix, subfolder)
+            for file_id in file_ids:
+                for year, month in year_months:
+                    datasets = []
+                    temp_files = []
+                    for tile in tiles_list:
+
+                        # Get all files in specific product-geometry-date prefix
+                        minio_product_prefix = os.path.join(product_prefix, tile, year, month)
+                        product_dir_list = minio_client.list_objects(SOURCE_BUCKET, prefix=minio_product_prefix, recursive=True)
+
+                        for obj  in product_dir_list:
+                            if not file_id.lower() in obj.object_name.lower() and not obj.object_name.endswith(".tif"):
+                                logger.warning(f"Skipping {obj.object_name}")
+                                continue
+
+                            # Read and download file content to temp file
+                            response = minio_client.get_object(SOURCE_BUCKET, obj.object_name)
+
+                            tmp = tempfile.NamedTemporaryFile(suffix=".tif", delete=False)
+                            tmp.write(response.read())
+                            tmp.close()
+
+                            logger.debug(f"Downloaded:\n\t\t\t\t   {obj.object_name}\n\t\t\t\tto temp file as:\n\t\t\t\t   {tmp.name}")
+                            
+                            # Add file name and data to lists
+                            temp_files.append(tmp.name)
+                            datasets.append(rasterio.open(tmp.name))
+
+                    # Merge datasets for the month
+                    if not datasets:
                         continue
+                        # return None, None
 
-                    # Read and download file content to temp file
-                    response = minio_client.get_object(SOURCE_BUCKET, obj.object_name)
+                    # Merge all tiles
+                    logger.debug("Merging...")
+                    mosaic, transform = merge(datasets)
 
-                    tmp = tempfile.NamedTemporaryFile(suffix=".tif", delete=False)
-                    tmp.write(response.read())
-                    tmp.close()
+                    # Use metadata from first dataset
+                    out_meta = datasets[0].meta.copy()
+                    out_meta.update({
+                        "height": mosaic.shape[1],
+                        "width": mosaic.shape[2],
+                        "transform": transform
+                    })
+                    # return mosaic, out_meta
 
-                    logger.debug(f"Downloaded:\n\t\t\t\t   {obj.object_name}\n\t\t\t\tto temp file as:\n\t\t\t\t   {tmp.name}")
-                    # Add file name and data to lists
-                    temp_files.append(tmp.name)
-                    datasets.append(rasterio.open(tmp.name))
+                    logger.debug(f"Cropping mosaic...")
+                    out_image, out_meta = crop_mosaic(mosaic, out_meta, geometry)
+                    year_month = f"{year}{month.split("-")[0]}"
+                    output_dir = os.path.join(
+                        "results",
+                        product_prefix,
+                        year,
+                        month,
+                        subfolder
+                    )
+                    os.makedirs(output_dir, exist_ok=True)
+                    output_filename = f"{os.path.join(product_key, year_month, subfolder, file_id)}.tif".replace("/","_")
+                    output_path = os.path.join(output_dir, output_filename)
+                    
+                    logger.debug(f"Cropped image metadadata:\n{out_meta}")
+                    logger.debug(f"Saving cropped image data to local as:\n\t\t\t\t   {output_path}")
 
-                # Merge datasets for the month
-                if not datasets:
-                    continue
-                    # return None, None
+                    with rasterio.open(output_path, "w", **out_meta) as dest:
+                        dest.write(out_image)
 
-                # Merge all tiles
-                logger.debug("Merging...")
-                mosaic, transform = merge(datasets)
+                    saved_files.append(output_path)
 
-                # Use metadata from first dataset
-                out_meta = datasets[0].meta.copy()
-                out_meta.update({
-                    "height": mosaic.shape[1],
-                    "width": mosaic.shape[2],
-                    "transform": transform
-                })
-                # return mosaic, out_meta
+                    # Cleanup after each month
+                    for ds in datasets:
+                        ds.close()
+                    for f in temp_files:
+                        try:
+                            os.remove(f)
+                        except:
+                            pass
 
-                logger.debug(f"Cropping mosaic...\n{mosaic}")
-                out_image, out_meta = crop_mosaic(mosaic, out_meta, geometry)
-                os.makedirs("res", exist_ok=True)
-                output_filename = f"{product_key}_{tile}_{year}_{month}.tif"
-                output_path = os.path.join(os.getcwd(),"res", output_filename)
-                
-                logger.debug(f"Cropped image metadadata:\n{out_meta}")
-                logger.debug(f"Saving cropped image data to local as:\n\t\t\t\t   {output_path}")
-
-                with rasterio.open(output_path, "w", **out_meta) as dest:
-                    dest.write(out_image)
-
-                saved_files.append(output_path)
-
-                # Cleanup after each month
-                for ds in datasets:
-                    ds.close()
-                for f in temp_files:
-                    try:
-                        os.remove(f)
-                    except:
-                        pass
-
-        zip_path = os.path.join(os.getcwd(), "res", "result.zip")
+        zip_path = os.path.join(os.getcwd(), "results", "result.zip")
         logger.debug(f"Zipping {zip_path}...")
         with zipfile.ZipFile(zip_path, "w") as z:
             for file in saved_files:
-                z.write(file, arcname=os.path.basename(file))
+                z.write(file, arcname=file)
     except Exception as e:
         raise e
 
@@ -206,14 +229,21 @@ def crop_mosaic(mosaic, meta, geometry):
             return out_image, out_meta
 
 if __name__ == "__main__":
+    init = datetime.now()
+    logger.info(f"--- STARTING DOWNLOAD-MERGE-CROP PROCESS ---\n")
     gdf = gpd.read_file("../misc/geometry.geojson")
     tiles = get_tiles_of_geometry(gdf)
     logger.debug(f"Tiles:\n{tiles}")
-    dates = get_year_month_pair("2024-01-01", "2024-02-01")
+    dates = get_year_month_pair("2024-01-01", "2024-01-01")
     logger.debug(dates)
+
+    product_key="images"
+
     download_merge_crop_tile_files(
         geometry_gdf=gdf,
         tiles_list=tiles,
         year_months=dates,
-        product_key="images"  # or whatever your bucket structure is
+        product_key=product_key  # or whatever your bucket structure is
     )
+    print()
+    logger.info(f"--- TRANSFERENCE TIME FOR '{product_key.upper()}': {datetime.now() - init}---\n")
