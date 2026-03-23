@@ -1,6 +1,6 @@
 index,es,en
 title,"# Descarga de Datos Geoespaciales","# Geospatial Data Downloader"
-subtitle,"### Configure su área de interés y destino de almacenamiento","### Configure your area of interest and storage destination"
+subtitle,"### Seleccione su producto, el rango temporal y su área de interés","### Select the product, temporal range and area of interes"
 lbl_lang,Seleccionar Idioma,Select Language
 lbl_geom,Método de Entrada de Geometría,Geometry Input Method
 lbl_start,Fecha de Inicio,Start Date

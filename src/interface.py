@@ -1,13 +1,17 @@
+import folium
+
+import geopandas as gpd
 import gradio as gr
 import pandas as pd
-import folium
-from folium.plugins import Draw
-from datetime import datetime, timedelta
 
-# --- 1. Multilingual Logic ---
+from folium.plugins import Draw
+from datetime import datetime, timedelta, timezone
+
+from utils.download_merge import get_product_for_parcel
+# --- Multilingual Logic ---
 def load_translations():
     try:
-        df = pd.read_csv("src/assets/multilanguage.csv", index_col='index')
+        df = pd.read_csv("assets/multilanguage.csv", index_col='index')
         return df.to_dict()
     except:
         # Fallback if file doesn't exist yet
@@ -18,7 +22,7 @@ translations = load_translations()
 def get_text(lang, key):
     return translations.get(lang.lower(), {}).get(key, key)
 
-# --- 2. Map Generation (Leaflet/Folium) ---
+# --- Map Generation (Leaflet/Folium) ---
 def create_map():
     m = folium.Map(location=[40.4167, -3.7033], zoom_start=6, tiles="Stadia.AlidadeSatellite")
     draw = Draw(
@@ -44,7 +48,7 @@ def create_map():
     """
     return map_html
 
-# --- 3. UI Layout ---
+# --- UI Layout ---
 with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
     # State management for language
     lang_state = gr.State("en")
@@ -60,8 +64,9 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             
             # Products
             product_select = gr.Radio(
-                choices=["Product A", "Product B", "Product C", "Product D", "Product E"],
-                label="Catalogue Product"
+                choices=["AOT", "images", "TIC", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
+                label="Catalogue Product",
+                value="images",
             )
             
             # Dates
@@ -74,18 +79,18 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             geom_type = gr.Radio(
                 choices=["GeoJSON Upload", "Sigpac Cadastral", "Draw on Map"],
                 label="Geometry Input",
-                value="GeoJSON Upload"
+                value="GeoJSON Upload",
             )
 
             # Conditional inputs for geometry
             file_input = gr.File(label="Upload GeoJSON", visible=True)
-            sigpac_input = gr.Textbox(label="Sigpac Reference", placeholder="Prov/Mun/Pol/Par...", visible=False)
+            sigpac_input = gr.Textbox(label="Sigpac Reference", placeholder="i.e: 14049A033000130000ID...", visible=False)
             
             # Map hidden container
             map_box = gr.HTML(create_map(), visible=False)
             # Hidden textbox to receive JS geometry data
             hidden_geom_data = gr.Textbox(visible=False)
-            
+        
 
         # --- Storage Configuration ---
         with gr.Column(scale=1, visible=False):
@@ -116,7 +121,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
 
     # --- Reactivity Logic ---
 
-    # 1. Language Switcher
+    # Language Switcher
     def update_language(lang):
         return [
             gr.update(value=get_text(lang, "title")),
@@ -136,7 +141,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
         outputs=[title_md, subtitle_md, geom_type, start_date, end_date, product_select, storage_type, get_data_btn, lang_state]
     )
 
-    # 2. Geometry Visibility
+    # Geometry Visibility
     def toggle_geom_ui(choice):
         return [
             gr.update(visible=(choice == "GeoJSON Upload")),
@@ -146,7 +151,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
     
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
-    # 3. Storage Visibility
+    # Storage Visibility
     def toggle_storage_ui(choice):
         if "S3" in choice:
             return gr.update(visible=True), gr.update(visible=False)
@@ -154,36 +159,51 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
 
     storage_type.change(toggle_storage_ui, inputs=[storage_type], outputs=[s3_group, azure_group])
 
-    # 4. Execution Logic
-    def process_request(geom_choice, file, sigpac, map_data, start, end, product, storage, *args):
-        # Implementation of your logic goes here
-        return f"""Inputs:
-        geom_choice:
-            type: {type(geom_choice)}
-            {geom_choice}
+    # Execution Logic
+    def process_request(product_key, file, sigpac_reference, map_data, start_date, end_date):
+        if file:
+            geometry_gdf = gpd.read_file(file)
+
+        elif sigpac_reference:
+            # TODO
+            geometry_gdf  = None
+        elif map_data:
+            # TODO
+            geometry_gdf  = None
+        else:
+            raise ValueError("Check input!")
+        
+        start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
+        end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
+
+        placeholder_out = f"""Inputs:
+        product_key:
+            type: {type(product_key)}
+            {product_key}
         file:
             type: {type(file)}
             {file}
-        sigpac:
-            type: {type(sigpac)}
-            {sigpac}
+        sigpac_reference:
+            type: {type(sigpac_reference)}
+            {sigpac_reference}
         map_data:
             type: {type(map_data)}
             {map_data}
-        start:
-            type: {type(start)}
-            {start}
-        end:
-            type: {type(end)}
-            {end}
-        product:
-            type: {type(product)}
-            {product}
+        start_date:
+            type: {type(start_date)}
+            {start_date}
+        end_date:
+            type: {type(end_date)}
+            {end_date}
         """
+
+        get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
+        
+        return placeholder_out
 
     get_data_btn.click(
         process_request,
-        inputs=[geom_type, file_input, sigpac_input, hidden_geom_data, start_date, end_date, product_select],
+        inputs=[product_select, file_input, sigpac_input, hidden_geom_data, start_date, end_date],
         outputs=[output_log]
     )
 

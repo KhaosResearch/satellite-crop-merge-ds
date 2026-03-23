@@ -19,13 +19,27 @@ from config.config import PRODUCT_TYPE_FILE_IDS, SENTINEL2_GRIDS_FILE, SOURCE_BU
 
 logger = structlog.get_logger()
 
-def get_product_for_parcel(product_key: str, geometry: gpd.GeoDataFrame, start_date: str, end_date: str):
+def get_product_for_parcel(product_key: str, geometry_gdf: gpd.GeoDataFrame, start_date: str, end_date: str):
     if product_key not in PRODUCT_TYPE_FILE_IDS.keys():
         ve = ValueError(f"Error: Product key must be one of the following: {str(PRODUCT_TYPE_FILE_IDS.keys()).replace("[","").replace("[","")}. Product key was: {product_key}")
         logger.error(ve)
         raise ve
-    # TODO
-    None
+    init = datetime.now()
+    print()
+    logger.info(f"--- STARTING DOWNLOAD-MERGE-CROP PROCESS ---\n")
+    tiles = _get_tiles_of_geometry(geometry_gdf)
+    logger.debug(f"Tiles:\n{tiles}")
+    dates = _get_year_month_pair(start_date, end_date)
+    logger.debug(dates)
+
+    download_merge_crop_band_files(
+        geometry_gdf=geometry_gdf,
+        tiles_list=tiles,
+        year_months=dates,
+        product_key=product_key
+    )
+    print()
+    logger.info(f"--- TRANSFERENCE TIME FOR '{product_key.upper()}': {datetime.now() - init} ---\n")
 
 def download_merge_crop_band_files(
         geometry_gdf: gpd.GeoDataFrame,
@@ -104,6 +118,7 @@ def download_merge_crop_band_files(
 def _get_tiles_of_geometry(geojson):
     """It gets the tile/tiles the geometry is comprised in."""
     if not SENTINEL2_GRIDS_FILE or not os.path.exists(SENTINEL2_GRIDS_FILE):
+        print(os.getcwd())
         raise FileNotFoundError(
             f"GEOMETRY_FILE is not set or does not exist: {SENTINEL2_GRIDS_FILE}")
     # Sentinel-2 grid
@@ -282,22 +297,10 @@ def _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file
 
 
 if __name__ == "__main__":
-    init = datetime.now()
-    print()
-    logger.info(f"--- STARTING DOWNLOAD-MERGE-CROP PROCESS ---\n")
-    gdf = gpd.read_file("../misc/geometry.geojson")
-    tiles = _get_tiles_of_geometry(gdf)
-    logger.debug(f"Tiles:\n{tiles}")
-    dates = _get_year_month_pair("2024-01-01", "2024-12-31")
-    logger.debug(dates)
+    
+    product_key = "images"
+    geometry_gdf = gpd.read_file("../misc/geometry.geojson")
+    start_date ="2024-01-01"
+    end_date ="2024-01-01"
 
-    product_key="WaterMass"
-
-    download_merge_crop_band_files(
-        geometry_gdf=gdf,
-        tiles_list=tiles,
-        year_months=dates,
-        product_key=product_key
-    )
-    print()
-    logger.info(f"--- TRANSFERENCE TIME FOR '{product_key.upper()}': {datetime.now() - init}---\n")
+    get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
