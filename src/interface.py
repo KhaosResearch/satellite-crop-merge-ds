@@ -7,7 +7,7 @@ import pandas as pd
 from folium.plugins import Draw
 from datetime import datetime, timedelta, timezone
 
-from utils.download_merge import get_product_for_parcel
+from utils.download_merge_crop import get_product_for_parcel
 # --- Multilingual Logic ---
 def load_translations():
     try:
@@ -117,6 +117,9 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             warning_md = gr.Warning(get_text("es", "warn_space"))
 
     get_data_btn = gr.Button("Obtener Datos", variant="primary")
+
+    output_log = gr.File(label="Output ZIP")
+
     output_log = gr.Textbox(label="Status / Logs")
 
     # --- Reactivity Logic ---

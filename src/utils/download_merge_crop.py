@@ -3,6 +3,7 @@ from typing import Iterator
 import zipfile
 from minio import Minio
 from minio.datatypes import Object
+import numpy
 import rasterio
 import tempfile
 import structlog
@@ -19,7 +20,26 @@ from config.config import PRODUCT_TYPE_FILE_IDS, SENTINEL2_GRIDS_FILE, SOURCE_BU
 
 logger = structlog.get_logger()
 
-def get_product_for_parcel(product_key: str, geometry_gdf: gpd.GeoDataFrame, start_date: str, end_date: str):
+def get_product_for_parcel(
+        product_key: str,
+        geometry_gdf: gpd.GeoDataFrame,
+        start_date: str,
+        end_date: str
+    ) -> str:
+    """Retrieve the specified product type for the given geometry and temporal range as a compressed ZIP file.
+    Args:
+        product_key (str):
+            The ID of the product.
+        geometry_gdf (gpd.GeoDataFrame):
+            The parcel's geometry.
+        start_date (str):
+            The starting date in ISO format (`YYYY-MM-DD`).
+        end_date (str):
+            The finishing date in ISO format (`YYYY-MM-DD`).
+    Returns:
+        zip_path (str):
+            The compressed ZIP filepath with all of the product data.
+    """
     if product_key not in PRODUCT_TYPE_FILE_IDS.keys():
         ve = ValueError(f"Error: Product key must be one of the following: {str(PRODUCT_TYPE_FILE_IDS.keys()).replace("[","").replace("[","")}. Product key was: {product_key}")
         logger.error(ve)
@@ -32,7 +52,7 @@ def get_product_for_parcel(product_key: str, geometry_gdf: gpd.GeoDataFrame, sta
     dates = _get_year_month_pair(start_date, end_date)
     logger.debug(dates)
 
-    download_merge_crop_band_files(
+    zip_path = download_merge_crop_band_files(
         geometry_gdf=geometry_gdf,
         tiles_list=tiles,
         year_months=dates,
@@ -41,26 +61,32 @@ def get_product_for_parcel(product_key: str, geometry_gdf: gpd.GeoDataFrame, sta
     print()
     logger.info(f"--- TRANSFERENCE TIME FOR '{product_key.upper()}': {datetime.now() - init} ---\n")
 
+    return zip_path
+
 def download_merge_crop_band_files(
         geometry_gdf: gpd.GeoDataFrame,
         tiles_list: list[str],
         year_months: list[tuple],
         product_key: str,
         minio_client: Minio=SOURCE_CLIENT
-    ) -> tuple:
+    ) -> str:
     """It iterates over the MinIO using the args data to build the paths and downloads all relevant files.
     After collecting monthly composite band's filepaths and content, it merges them into a single mosaic file.
     After merging, it crops the geometry and saves the cropped data in a ZIP file.
 
     Args:
-        geometry (gpd.GeoDataFrame):
-            The geometry to crop.
+        geometry_gdf (gpd.GeoDataFrame):
+            The parcel's geometry.
         tiles_list (list[str]):
             Sentinel-2 tile's ID list.
         year_months (list[tuple]):
             List of `("YYYY", "NN-MMM")` tuples.
         product_key (str):
             Product ID string.
+    Returns:
+        zip_path (str):
+            The compressed ZIP filepath with all of the product data.
+
     """
     try:
         saved_files = []
@@ -112,11 +138,19 @@ def download_merge_crop_band_files(
         with zipfile.ZipFile(zip_path, "w") as z:
             for file in saved_files:
                 z.write(file, arcname=file)
+        return zip_path
     except Exception as e:
         raise e
 
-def _get_tiles_of_geometry(geojson):
-    """It gets the tile/tiles the geometry is comprised in."""
+def _get_tiles_of_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str]:
+    """Get the tile/tiles the geometry is comprised in.
+    Args:
+        geometry_gdf (gpd.GeoDataFrame):
+            The parcel's geometry.
+    Returns:
+        tile_ids (list[str]):
+            The Setinel-2 Tile's ID list.
+    """
     if not SENTINEL2_GRIDS_FILE or not os.path.exists(SENTINEL2_GRIDS_FILE):
         print(os.getcwd())
         raise FileNotFoundError(
@@ -125,7 +159,7 @@ def _get_tiles_of_geometry(geojson):
     grids_geojson = gpd.read_file(SENTINEL2_GRIDS_FILE)
 
     # Ensure same CRS
-    gdf = geojson.to_crs(grids_geojson.crs)
+    gdf = geometry_gdf.to_crs(grids_geojson.crs)
     
     # Spatial intersection
     result = gpd.overlay(gdf, grids_geojson, how="intersection")
@@ -135,7 +169,17 @@ def _get_tiles_of_geometry(geojson):
 
     return tile_ids
 
-def _get_year_month_pair(start_date: str, end_date: str):
+def _get_year_month_pair(start_date: str, end_date: str) -> list[tuple]:
+    """Generates a (`YYYY`, `NN-MMM`) tuple list of the given temporal range.
+    Args:
+        start_date (str):
+            The starting date in ISO format (`YYYY-MM-DD`).
+        end_date (str):
+            The finishing date in ISO format (`YYYY-MM-DD`).
+    Returns:
+        year_months (tuple):
+            The (`YYYY`, `NN-MMM`) tuple list.
+    """
     start = datetime.fromisoformat(start_date)
     end = datetime.fromisoformat(end_date)
 
@@ -160,7 +204,32 @@ def _get_year_month_pair(start_date: str, end_date: str):
 
     return year_months
 
-def _get_object_files_data(minio_client: Minio, file_id: str, geometry_gdf:gpd.GeoDataFrame, datasets: list, temp_files: list[str], product_dir_list: Iterator[Object]) -> tuple:
+def _get_object_files_data(
+        minio_client: Minio,
+        file_id: str,
+        geometry_gdf: gpd.GeoDataFrame,
+        datasets: list[rasterio.io.DatasetReader],
+        temp_files: list[str],
+        product_dir_list: Iterator[Object]
+    ) -> tuple:
+    """It retrieves all data from files in the specific MinIO directory using the input as prefix.
+    Args:
+        minio_client (Minio):
+            The MinIO client with access to the bucket.
+        file_id (str):
+            The identifier to find the specific file/files. Usually, band/index name withpout extensions.
+        geometry_gdf (gpd.GeoDataFrame):
+            The parcel's geometry.
+        datasets (list[rasterio.io.DatasetReader]):
+            The list of datasets associated to the files found.
+        temp_files (list[str]):
+            The list of filenames associated to the files found.
+        product_dir_list (Iterator[Object]):
+            The list of objects found in the bucket's prefix.
+    Returns:
+        tuple:
+            The data and filenames associates to the files found.
+    """
     for obj  in product_dir_list:
         if not file_id.lower() in obj.object_name.lower() or not obj.object_name.endswith(".tif"):
             logger.warning(f"Skipping {obj.object_name}")
@@ -183,10 +252,18 @@ def _get_object_files_data(minio_client: Minio, file_id: str, geometry_gdf:gpd.G
     
     return datasets, temp_files
 
-def _align_crs(dataset_entry, target_crs):
+def _align_crs(dataset_entry: rasterio.io.DatasetReader, target_crs: str)->rasterio.io.DatasetReader:
     """
     Checks dataset entry against a target CRS. 
     If a dataset differs, it warps it in memory and returns a new MemoryFile-backed dataset.
+    Args:
+        datasets (list[rasterio.io.DatasetReader]):
+            The list of datasets associated to the files found.
+        target_crs (str):
+            The specific Coorinates Reference System to use.
+    Returns:
+        aligned_dataset_entry (rasterio.io.DatasetReader):
+            The aligned data.
     """
     aligned_dataset_entry = dataset_entry
     
@@ -222,7 +299,15 @@ def _align_crs(dataset_entry, target_crs):
             
     return aligned_dataset_entry
 
-def _merge_image_data_to_mosaic(datasets):
+def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tuple:
+    """Merges all same image data from different tiles into one mosaic
+    Args:
+        datasets (list[rasterio.io.DatasetReader]):
+            The list of datasets associated to the files found.
+    Returns:
+    tuple:
+        The moasic's data and metadata.
+    """
     # Merge datasets for the month
     logger.info(f"Merging {len(datasets)} files...")
     mosaic, transform = merge(datasets)
@@ -235,10 +320,21 @@ def _merge_image_data_to_mosaic(datasets):
         "width": mosaic.shape[2],
         "transform": transform
     })
-
     return mosaic, out_meta
 
-def _crop_mosaic(mosaic, meta, geometry):
+def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodataframe):
+    """Crops the mosaic given the parcel's geometry
+    Args:
+        mosaic (numpy.ndarray):
+            The mosaic data from te merge.
+        meta (dict):
+            The mosaics metadata.
+        geometry_gdf (gpd.GeoDataFrame):
+            The parcel's geometry.
+    Returns:
+        tuple:
+            The cropped image data and metadata.
+        """
     logger.info(f"Cropping mosaic...")
 
     meta = meta.copy()
@@ -247,7 +343,7 @@ def _crop_mosaic(mosaic, meta, geometry):
             dataset.write(mosaic)
 
             # Reproject geometry to raster CRS
-            geom_gdf = gpd.GeoDataFrame(geometry=[geometry], crs="EPSG:4326")
+            geom_gdf = gpd.GeoDataFrame(geometry=[geometry_gdf], crs="EPSG:4326")
             geom_gdf = geom_gdf.to_crs(dataset.crs)
 
             out_image, out_transform = mask(
@@ -265,7 +361,42 @@ def _crop_mosaic(mosaic, meta, geometry):
 
             return out_image, out_meta
 
-def _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, out_meta, out_image):
+def _save_cropped_data(
+        product_key: str,
+        saved_files: list[str],
+        product_prefix: str,
+        subfolder: str,
+        file_id: str,
+        year: str,
+        month: str,
+        out_image: numpy.ndarray,
+        out_meta: dict,
+    )->list[str]:
+    """It saves locally all files associated to the product.
+    It uses the arguments to mimic the MinIO dir structure on local.
+    Args:
+        product_key (str):
+            The ID of the product.
+        saved_files (list[str]):
+            List of saved files associated to the product.
+        product_prefix (str):
+            First part of the MinIO prefix for the bucket.
+        subfolder (str):
+            Subfolder inside the prefix.
+        file_id (str):
+            The identifier to find the specific file/files. Usually, band/index name withpout extensions.
+        year (str):
+            Year `YYYY` string.
+        month (str):
+            Months `NN-MMM` string.
+        out_image (numpy.ndarray):
+            Cropped image data.
+        out_meta (dict):
+            Cropped image metadata.
+    Returns:
+        saved_files (list[str]):
+            List of saved files associated to the product.
+"""
     year_month = f"{year}{month.split("-")[0]}"
     output_dir = os.path.join(
                         f"results",
@@ -294,7 +425,6 @@ def _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file
     saved_files.append(output_path)
 
     return saved_files
-
 
 if __name__ == "__main__":
     
