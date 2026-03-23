@@ -26,3 +26,20 @@ PRODUCT_TYPE_FILE_IDS = {
     "TIC": {"": ["TIC"]},
     "WVP": {"": ["WVP"]},
 }
+
+SPECTRAL_INDICES_RESOLUTION = {
+    "evi": "10",
+    "evi2": "10",
+    "ndre": "60",
+    "ndvi": "10",
+    "osavi": "10",
+    "ri": "10",
+    "ndwi": "10",
+    "gvmi": "20",
+    "mndwi": "20",
+    "ndsi": "20",
+    "ndyi": "10",
+    "bri": "20",
+    "cri1": "20",
+    "bsi": "20",
+}
