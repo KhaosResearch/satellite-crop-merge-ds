@@ -64,7 +64,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             
             # Products
             product_select = gr.Radio(
-                choices=["AOT", "images", "TIC", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
+                choices=["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
                 label="Catalogue Product",
                 value="images",
             )
@@ -83,7 +83,10 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             )
 
             # Conditional inputs for geometry
-            file_input = gr.File(label="Upload GeoJSON", visible=True)
+            file_input = gr.File(
+                label="Upload GeoJSON",
+                visible=True,
+                file_types=[".json", ".geojson"])
             sigpac_input = gr.Textbox(label="Sigpac Reference", placeholder="i.e: 14049A033000130000ID...", visible=False)
             
             # Map hidden container
@@ -117,10 +120,9 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             warning_md = gr.Warning(get_text("es", "warn_space"))
 
     get_data_btn = gr.Button("Obtener Datos", variant="primary")
-
-    output_log = gr.File(label="Output ZIP")
-
-    output_log = gr.Textbox(label="Status / Logs")
+    with gr.Row():
+        output_log = gr.Textbox(label="Status / Logs")
+        output_zip_file = gr.File(label="Output ZIP")
 
     # --- Reactivity Logic ---
 
@@ -200,14 +202,14 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             {end_date}
         """
 
-        get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
+        output_zip = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
         
-        return placeholder_out
+        return output_zip, placeholder_out
 
     get_data_btn.click(
         process_request,
         inputs=[product_select, file_input, sigpac_input, hidden_geom_data, start_date, end_date],
-        outputs=[output_log]
+        outputs=[output_zip_file, output_log]
     )
 
 demo.launch()

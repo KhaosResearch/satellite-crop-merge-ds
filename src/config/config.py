@@ -23,7 +23,7 @@ PRODUCT_TYPE_FILE_IDS = {
     "WaterMass": {"": ["ndwi", "gvmi"]},
     "Yellow": {"": ["ndyi"]},
     "AOT": {"": ["AOT"]},
-    "TIC": {"": ["TIC"]},
+    "TCI": {"": ["TCI"]},
     "WVP": {"": ["WVP"]},
 }
 

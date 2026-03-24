@@ -52,7 +52,7 @@ def get_product_for_parcel(
     dates = _get_year_month_pair(start_date, end_date)
     logger.debug(dates)
 
-    zip_path = download_merge_crop_band_files(
+    zip_path = download_merge_crop_minio(
         geometry_gdf=geometry_gdf,
         tiles_list=tiles,
         year_months=dates,
@@ -63,16 +63,16 @@ def get_product_for_parcel(
 
     return zip_path
 
-def download_merge_crop_band_files(
+def download_merge_crop_minio(
         geometry_gdf: gpd.GeoDataFrame,
         tiles_list: list[str],
         year_months: list[tuple],
         product_key: str,
         minio_client: Minio=SOURCE_CLIENT
     ) -> str:
-    """It iterates over the MinIO using the args data to build the paths and downloads all relevant files.
-    After collecting monthly composite band's filepaths and content, it merges them into a single mosaic file.
-    After merging, it crops the geometry and saves the cropped data in a ZIP file.
+    """It iterates over the MinIO database, using the args data to build the paths and download all relevant files.
+    After collecting monthly composite bands/indices filepaths and content, it merges each into its own mosaic file.
+    After merging, it crops the geometry and saves the cropped data locally and in a ZIP file.
 
     Args:
         geometry_gdf (gpd.GeoDataFrame):
@@ -92,7 +92,7 @@ def download_merge_crop_band_files(
         saved_files = []
         geometry= geometry_gdf.geometry.values[0]
         
-        if product_key not in ["images", "AOT", "TIC", "WVP"]:
+        if product_key not in ["images", "AOT", "TCI", "WVP"]:
             product_prefix = os.path.join("indices", product_key)
         else:
             product_prefix = product_key
@@ -131,7 +131,7 @@ def download_merge_crop_band_files(
 
                     out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
 
-                    saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, out_meta, out_image)
+                    saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, out_image,out_meta)
 
         zip_path = os.path.join(os.getcwd(), "results", f"results_{product_key}.zip")
         logger.info(f"Zipping {zip_path}...")
