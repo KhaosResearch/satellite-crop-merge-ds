@@ -16,7 +16,7 @@ PRODUCT_TYPE_FILE_IDS = {
     "images": {
         "10m": [ 'B02', 'B03', 'B04', 'B08'],
         "20m": [ 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B11', 'B12'],
-        "60m": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B10', 'B11', 'B12']
+        "60m": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B11', 'B12']
     },
     "BareSoil": {"": ["bsi"]},
     "Senescence": {"": ["bri", "cri1"]},
@@ -32,7 +32,7 @@ PRODUCT_TYPE_FILE_IDS = {
 SPECTRAL_INDICES_RESOLUTION = {
     "evi": "10",
     "evi2": "10",
-    "ndre": "60",
+    "ndre": "20",
     "ndvi": "10",
     "osavi": "10",
     "ri": "10",
