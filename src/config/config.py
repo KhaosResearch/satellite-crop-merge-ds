@@ -5,6 +5,8 @@ from  config.minio_client import get_src_minio_client
 
 load_dotenv()
 
+RESULTS_DIR_NAME = "results"
+
 # MinIO Credentials
 SOURCE_BUCKET = os.environ.get('MINIO_BUCKET_NAME')
 SOURCE_CLIENT = get_src_minio_client()

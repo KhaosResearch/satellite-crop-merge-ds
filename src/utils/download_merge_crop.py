@@ -16,7 +16,7 @@ from rasterio.mask import mask
 from rasterio.merge import merge
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 
-from config.config import PRODUCT_TYPE_FILE_IDS, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
+from config.config import PRODUCT_TYPE_FILE_IDS, RESULTS_DIR_NAME, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
 
 logger = structlog.get_logger()
 
@@ -90,6 +90,7 @@ def download_merge_crop_minio(
     """
     try:
         saved_files = []
+        has_readme = False
         geometry= geometry_gdf.geometry.values[0]
         
         if product_key not in ["images", "AOT", "TCI", "WVP"]:
@@ -108,13 +109,14 @@ def download_merge_crop_minio(
                     logger.info(f"Acessing data from {year}-{month}...")
                     datasets = []
                     temp_files = []
+                    has_readme = any("README" in file for file in saved_files) if not has_readme else False
                     for tile in tiles_list:
 
                         # Get all files in specific product-geometry-date prefix
                         minio_product_prefix = os.path.join(product_prefix, tile, year, month, subfolder)
                         product_dir_list = minio_client.list_objects(SOURCE_BUCKET, prefix=minio_product_prefix, recursive=True)
 
-                        datasets, temp_files = _get_object_files_data(minio_client, file_id, geometry_gdf, datasets, temp_files, product_dir_list)
+                        datasets, temp_files = _get_object_files_data(file_id, geometry_gdf, datasets, temp_files, product_dir_list, minio_client)
                     
                     if not datasets:
                         continue
@@ -131,9 +133,9 @@ def download_merge_crop_minio(
 
                     out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
 
-                    saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, out_image,out_meta)
+                    saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, out_image,out_meta, has_readme, minio_client)
 
-        zip_path = os.path.join(os.getcwd(), "results", f"results_{product_key}.zip")
+        zip_path = os.path.join(os.getcwd(), RESULTS_DIR_NAME, f"results_{product_key}.zip")
         logger.info(f"Zipping {zip_path}...")
         with zipfile.ZipFile(zip_path, "w") as z:
             for file in saved_files:
@@ -205,12 +207,12 @@ def _get_year_month_pair(start_date: str, end_date: str) -> list[tuple]:
     return year_months
 
 def _get_object_files_data(
-        minio_client: Minio,
         file_id: str,
         geometry_gdf: gpd.GeoDataFrame,
         datasets: list[rasterio.io.DatasetReader],
         temp_files: list[str],
-        product_dir_list: Iterator[Object]
+        product_dir_list: Iterator[Object],
+        minio_client: Minio=SOURCE_CLIENT,
     ) -> tuple:
     """It retrieves all data from files in the specific MinIO directory using the input as prefix.
     Args:
@@ -233,7 +235,7 @@ def _get_object_files_data(
     for obj  in product_dir_list:
         if not file_id.lower() in obj.object_name.lower() or not obj.object_name.endswith(".tif"):
             logger.warning(f"Skipping {obj.object_name}")
-            continue
+            break
 
         # Read and download file content to temp file
         response = minio_client.get_object(SOURCE_BUCKET, obj.object_name)
@@ -322,7 +324,7 @@ def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tupl
     })
     return mosaic, out_meta
 
-def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodataframe):
+def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodataframe)->tuple:
     """Crops the mosaic given the parcel's geometry
     Args:
         mosaic (numpy.ndarray):
@@ -371,6 +373,8 @@ def _save_cropped_data(
         month: str,
         out_image: numpy.ndarray,
         out_meta: dict,
+        has_readme: bool,
+        minio_client: Minio=SOURCE_CLIENT,
     )->list[str]:
     """It saves locally all files associated to the product.
     It uses the arguments to mimic the MinIO dir structure on local.
@@ -393,13 +397,20 @@ def _save_cropped_data(
             Cropped image data.
         out_meta (dict):
             Cropped image metadata.
+        has_readme (bool):
+            Whether the README file has been saved or not
+        minio_client (Minio):
+            The MinIO client with access to the bucket. Only needed is `has_readme = False`.
     Returns:
         saved_files (list[str]):
             List of saved files associated to the product.
 """
+    if not has_readme:
+        saved_files = _save_readme(product_prefix, product_key, saved_files, minio_client)
+        has_readme = True
     year_month = f"{year}{month.split("-")[0]}"
     output_dir = os.path.join(
-                        f"results",
+                        RESULTS_DIR_NAME,
                         product_prefix,
                         year,
                         month,
@@ -425,6 +436,49 @@ def _save_cropped_data(
     saved_files.append(output_path)
 
     return saved_files
+
+def _save_readme(
+        product_prefix: str,
+        product_key: str,
+        saved_files: list[str],
+        minio_client: Minio=SOURCE_CLIENT
+    )->list[str]:
+    """It specifically downloads and saves the selected product type readme from MinIO.
+    Args:
+        product_prefix (str):
+            First part of the MinIO prefix for the bucket.
+        product_key (str):
+            The ID of the product.
+        saved_files (list[str]):
+            List of saved files associated to the product.
+        minio_client (Minio):
+            The MinIO client with access to the bucket.
+    Returns:
+        saved_files (list[str]):
+            List of saved files associated to the product.
+    """
+    minio_path = os.path.join(product_prefix, f"README_{product_key}.pdf")
+    output_path = os.path.join(RESULTS_DIR_NAME, minio_path)
+
+    try:
+        # Download object from MinIO
+        response = minio_client.get_object(SOURCE_BUCKET, minio_path)
+        
+        # Save to local file
+        with open(output_path, "wb") as file_data:
+            for chunk in response.stream(32 * 1024):
+                file_data.write(chunk)
+
+        response.close()
+        response.release_conn()
+
+        saved_files.append(output_path)
+        
+        return saved_files
+
+    except Exception as e:
+        print(f"Error downloading README in {minio_path}: {e}")
+        raise e
 
 if __name__ == "__main__":
     
