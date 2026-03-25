@@ -1,15 +1,19 @@
+import json
 import folium
 
 import geopandas as gpd
 import gradio as gr
 import pandas as pd
 
+from branca.element import Element
 from folium.plugins import Draw
 from datetime import datetime, timedelta, timezone
 
 from sigpac_tools.find import find_from_cadastral_registry
 
+from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, get_draw_map_custom_script
 from utils.download_merge_crop import get_product_for_parcel
+
 # --- Multilingual Logic ---
 def load_translations():
     try:
@@ -34,24 +38,13 @@ def create_map():
         }
     )
     draw.add_to(m)
-    
-    # JavaScript to push drawing data to a hidden Gradio component
-    map_html = m._repr_html_()
-    script = """
-    <script>
-    var map = document.querySelector('iframe').contentWindow.map;
-    map.on('draw:created', function (e) {
-        var layer = e.layer;
-        var shape = layer.toGeoJSON();
-        var shape_for_gradio = JSON.stringify(shape);
-        parent.postMessage({type: 'map_geometry', data: shape_for_gradio}, '*');
-    });
-    </script>
-    """
-    return map_html
+    map_id = m.get_name()
+    m.get_root().header.add_child(Element(get_draw_map_custom_script(map_id)))
+
+    return m._repr_html_()    
 
 # --- UI Layout ---
-with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
+with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER, css=HIDE_MAP_TEXTBOX_CSS) as demo:
     # State management for language
     lang_state = gr.State("en")
     with gr.Row():
@@ -91,10 +84,14 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
                 file_types=[".json", ".geojson"])
             sigpac_input = gr.Textbox(label="Sigpac Reference", placeholder="i.e: 14049A033000130000ID...", visible=False)
             
+            # Hidden textbox to receive JS geometry data
+            hidden_map_data = gr.Textbox(
+                label="Internal Map Storage", 
+                elem_id="map_data_input",
+                visible=True  # Hides inmediately because of HIDE_MAP_TEXTBOX_CSS
+            )
             # Map hidden container
             map_box = gr.HTML(create_map(), visible=False)
-            # Hidden textbox to receive JS geometry data
-            hidden_geom_data = gr.Textbox(visible=False)
         
 
         # --- Storage Configuration ---
@@ -125,7 +122,10 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
     with gr.Row():
         output_log = gr.Textbox(label="Status / Logs")
         output_zip_file = gr.File(label="Output ZIP")
-
+        
+    # The 'load' function triggers our JS listener on page start
+    demo.load(None, None, None, js=JS_RECIEVER)
+    
     # --- Reactivity Logic ---
 
     # Language Switcher
@@ -209,10 +209,23 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4258")
 
         elif map_data:
-            # TODO
-            geometry_gdf  = None
-            geometry_gdf = gpd.read_file(file)
+            try:
+                # map_data arrives as a JSON string
+                data = json.loads(map_data)
+                
+                # Use GeoPandas to read the JSON directly
+                # We wrap it in a list if it's a single Feature
+                if data.get("type") == "Feature":
+                    geometry_gdf = gpd.GeoDataFrame.from_features([data], crs="EPSG:4258")
+                else:
+                    # Handle FeatureCollection
+                    geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4258")
+                    
+                placeholder_out += f"Map geometry converted to GDF: {geometry_gdf.shape}"
+            except Exception as e:
+                return None, f"Error parsing map data: {str(e)}"
         else:
+            print(placeholder_out)
             raise ValueError("Check input!")
         
         start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
@@ -225,7 +238,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
 
     get_data_btn.click(
         process_request,
-        inputs=[product_select, file_input, sigpac_input, hidden_geom_data, start_date, end_date],
+        inputs=[product_select, file_input, sigpac_input, hidden_map_data, start_date, end_date],
         outputs=[output_zip_file, output_log]
     )
 
