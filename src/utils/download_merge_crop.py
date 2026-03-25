@@ -1,9 +1,6 @@
 import os
 import shutil
-from typing import Iterator
 import zipfile
-from minio import Minio
-from minio.datatypes import Object
 import numpy
 import rasterio
 import tempfile
@@ -12,15 +9,17 @@ import structlog
 import geopandas as gpd
 
 from datetime import datetime
+from minio import Minio
+from pathlib import Path
 from rasterio.io import MemoryFile
 from rasterio.mask import mask
 from rasterio.merge import merge
-from rasterio.warp import calculate_default_transform, reproject, Resampling
 
 from config.config import PRODUCT_TYPE_FILE_IDS, RESULTS_DIR_NAME, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
 
 logger = structlog.get_logger()
 
+# --- ORCHESTRATORS ---
 def get_product_for_parcel(
         product_key: str,
         geometry_gdf: gpd.GeoDataFrame,
@@ -89,6 +88,17 @@ def download_merge_crop_minio(
             The compressed ZIP filepath with all of the product data.
 
     """
+
+    # Remove old result files
+    results_dir = Path(__file__).resolve().parent.parent / RESULTS_DIR_NAME
+    for item in results_dir.iterdir():
+        try:
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+        except OSError:
+            pass
     try:
         saved_files = []
         geometry= geometry_gdf.geometry.values[0]
@@ -117,8 +127,14 @@ def download_merge_crop_minio(
                     for resolution_tag in resolution_tags:
                         local_paths = []
                         for tile in tiles_list:
+                            # Build MinIO object path
                             minio_obj_filename = f"T{tile}_{year}{month.split("-")[0]}_comp_{resolution_tag}_{file_id}.tif" 
                             minio_obj_path = os.path.join(product_prefix, tile, year, month, subfolder, minio_obj_filename)
+                            
+                            # Check if object exists database
+                            if not _file_exists_in_minio(minio_obj_path, minio_client):
+                                logger.warning(f"Object does not exist! Skipping {minio_obj_path}")
+                                continue
                             
                             # Get the specific object in the MinIO
                             local_file = os.path.join(temp_dir, f"{tile}_{file_id}.tif")
@@ -155,6 +171,7 @@ def download_merge_crop_minio(
     finally:
         shutil.rmtree(temp_dir)
 
+# --- GEOSPATIAL LOGIC ---
 def _get_tiles_of_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str]:
     """Get the tile/tiles the geometry is comprised in.
     Args:
@@ -215,101 +232,6 @@ def _get_year_month_pair(start_date: str, end_date: str) -> list[tuple]:
             current = current.replace(month=current.month + 1)
 
     return year_months
-
-def _get_object_files_data(
-        file_id: str,
-        geometry_gdf: gpd.GeoDataFrame,
-        datasets: list[rasterio.io.DatasetReader],
-        temp_files: list[str],
-        product_dir_list: Iterator[Object],
-        minio_client: Minio=SOURCE_CLIENT,
-    ) -> tuple:
-    """It retrieves all data from files in the specific MinIO directory using the input as prefix.
-    Args:
-        minio_client (Minio):
-            The MinIO client with access to the bucket.
-        file_id (str):
-            The identifier to find the specific file/files. Usually, band/index name withpout extensions.
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
-        datasets (list[rasterio.io.DatasetReader]):
-            The list of datasets associated to the files found.
-        temp_files (list[str]):
-            The list of filenames associated to the files found.
-        product_dir_list (Iterator[Object]):
-            The list of objects found in the bucket's prefix.
-    Returns:
-        tuple:
-            The data and filenames associates to the files found.
-    """
-    for obj  in product_dir_list:
-        if not file_id.lower() in obj.object_name.lower() or not obj.object_name.endswith(".tif"):
-            logger.warning(f"Skipping {obj.object_name}")
-            break
-
-        # Read and download file content to temp file
-        response = minio_client.get_object(SOURCE_BUCKET, obj.object_name)
-
-        tmp = tempfile.NamedTemporaryFile(suffix=".tif", delete=False)
-        tmp.write(response.read())
-        tmp.close()
-
-        logger.debug(f"Downloaded:\n\t\t\t\t   {obj.object_name}\n\t\t\t\tto temp file as:\n\t\t\t\t   {tmp.name}")
-                            
-        # Add file name and data to lists
-        temp_files.append(tmp.name)
-        dataset_entry = rasterio.open(tmp.name)
-        aligned_dataset_entry = _align_crs(dataset_entry, str(geometry_gdf.crs))
-        datasets.append(aligned_dataset_entry)
-    
-    return datasets, temp_files
-
-def _align_crs(dataset_entry: rasterio.io.DatasetReader, target_crs: str)->rasterio.io.DatasetReader:
-    """
-    Checks dataset entry against a target CRS. 
-    If a dataset differs, it warps it in memory and returns a new MemoryFile-backed dataset.
-    Args:
-        datasets (list[rasterio.io.DatasetReader]):
-            The list of datasets associated to the files found.
-        target_crs (str):
-            The specific Coorinates Reference System to use.
-    Returns:
-        aligned_dataset_entry (rasterio.io.DatasetReader):
-            The aligned data.
-    """
-    aligned_dataset_entry = dataset_entry
-    
-    if not dataset_entry.crs == target_crs:
-        logger.debug(f"Warping dataset from {dataset_entry.crs} to {target_crs}")
-        
-        # Calculate transform for the new CRS
-        transform, width, height = calculate_default_transform(
-            dataset_entry.crs, target_crs, dataset_entry.width, dataset_entry.height, *dataset_entry.bounds
-        )
-        kwargs = dataset_entry.meta.copy()
-        kwargs.update({
-            'crs': target_crs,
-            'transform': transform,
-            'width': width,
-            'height': height
-        })
-
-        # Warp into a MemoryFile
-        mem_file = MemoryFile()
-        with mem_file.open(**kwargs) as dest:
-            reproject(
-                source=rasterio.band(dataset_entry, 1),
-                destination=rasterio.band(dest, 1),
-                src_transform=dataset_entry.transform,
-                src_crs=dataset_entry.crs,
-                dst_transform=transform,
-                dst_crs=target_crs,
-                resampling=Resampling.nearest
-            )
-        # Open the memory file to keep it active for the merge
-        aligned_dataset_entry = mem_file.open()
-            
-    return aligned_dataset_entry
 
 def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tuple:
     """Merges all same image data from different tiles into one mosaic
@@ -378,6 +300,7 @@ def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodatafra
     finally:
         del mosaic
 
+# --- I/O LOGIC ---
 def _save_cropped_data(
         product_key: str,
         saved_files: list[str],
@@ -451,7 +374,6 @@ def _save_cropped_data(
     except Exception as e:
         raise Exception(f"Error while saving: {e}")
 
-
 def _save_readme(
         product_prefix: str,
         product_key: str,
@@ -474,11 +396,7 @@ def _save_readme(
     """
     minio_path = os.path.join(product_prefix, f"README_{product_key}.pdf")
     output_path = os.path.join(RESULTS_DIR_NAME, minio_path)
-    try:
-        minio_client.stat_object(SOURCE_BUCKET, minio_path)
-        readme_exists_in_minio = True
-    except Exception:
-        readme_exists_in_minio = False
+    readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client)
     try:
         if readme_exists_in_minio:
             logger.debug(f"Downloading README_{product_key} file")
@@ -502,6 +420,14 @@ def _save_readme(
     except Exception as e:
         logger.error(f"Error downloading README in {minio_path}: {e}")
         raise e
+
+def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_name: str=SOURCE_BUCKET):
+    try:
+        minio_client.stat_object(bucket_name, minio_path)
+        file_exists = True
+    except Exception:
+        file_exists = False
+    return file_exists
 
 if __name__ == "__main__":
     

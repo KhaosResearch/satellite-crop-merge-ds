@@ -44,7 +44,7 @@ def create_map():
     return m._repr_html_()    
 
 # --- UI Layout ---
-with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER, css=HIDE_MAP_TEXTBOX_CSS) as demo:
+with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
     # State management for language
     lang_state = gr.State("en")
     with gr.Row():
@@ -94,30 +94,6 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER, css=HIDE_
             map_box = gr.HTML(create_map(), visible=False)
         
 
-        # --- Storage Configuration ---
-        with gr.Column(scale=1, visible=False):
-            storage_type = gr.Radio(
-                choices=["S3", "Azure"],
-                label="Provider",
-                value="Almacenamiento S3"
-            )
-            
-            # S3 Fields
-            with gr.Group(visible=False) as s3_group:
-                s3_id = gr.Textbox(label="ID de acceso")
-                s3_key = gr.Textbox(label="Clave de Acceso", type="password")
-                s3_url = gr.Textbox(label="Dirección de almacenamiento (URL)")
-                s3_bucket = gr.Textbox(label="Nombre del bucket")
-                s3_path = gr.Textbox(label="Ruta del objeto (opcional)")
-            
-            # Azure Fields
-            with gr.Group(visible=False) as azure_group:
-                az_token = gr.Textbox(label="Token SAS")
-                az_url = gr.Textbox(label="Ruta SAS completa")
-            
-            gr.Markdown("---")
-            warning_md = gr.Warning(get_text("es", "warn_space"))
-
     get_data_btn = gr.Button("Obtener Datos", variant="primary")
     with gr.Row():
         output_log = gr.Textbox(label="Status / Logs")
@@ -137,7 +113,6 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER, css=HIDE_
             gr.update(label=get_text(lang, "lbl_start")),
             gr.update(label=get_text(lang, "lbl_end")),
             gr.update(label=get_text(lang, "lbl_prod")),
-            gr.update(label=get_text(lang, "lbl_storage")),
             gr.update(value=get_text(lang, "btn_run")),
             lang
         ]
@@ -145,7 +120,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER, css=HIDE_
     lang_selector.change(
         update_language, 
         inputs=[lang_selector], 
-        outputs=[title_md, subtitle_md, geom_type, start_date, end_date, product_select, storage_type, get_data_btn, lang_state]
+        outputs=[title_md, subtitle_md, geom_type, start_date, end_date, product_select, get_data_btn, lang_state]
     )
 
     # Geometry Visibility
@@ -157,14 +132,6 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER, css=HIDE_
         ]
     
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
-
-    # Storage Visibility
-    def toggle_storage_ui(choice):
-        if "S3" in choice:
-            return gr.update(visible=True), gr.update(visible=False)
-        return gr.update(visible=False), gr.update(visible=True)
-
-    storage_type.change(toggle_storage_ui, inputs=[storage_type], outputs=[s3_group, azure_group])
 
     # Execution Logic
     def process_request(product_key, file, sigpac_reference, map_data, start_date, end_date):
@@ -242,4 +209,4 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER, css=HIDE_
         outputs=[output_zip_file, output_log]
     )
 
-demo.launch()
+demo.launch(css=HIDE_MAP_TEXTBOX_CSS)
