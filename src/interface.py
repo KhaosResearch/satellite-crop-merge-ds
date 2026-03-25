@@ -7,6 +7,8 @@ import pandas as pd
 from folium.plugins import Draw
 from datetime import datetime, timedelta, timezone
 
+from sigpac_tools.find import find_from_cadastral_registry
+
 from utils.download_merge_crop import get_product_for_parcel
 # --- Multilingual Logic ---
 def load_translations():
@@ -166,21 +168,6 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
 
     # Execution Logic
     def process_request(product_key, file, sigpac_reference, map_data, start_date, end_date):
-        if file:
-            geometry_gdf = gpd.read_file(file)
-
-        elif sigpac_reference:
-            # TODO
-            geometry_gdf  = None
-        elif map_data:
-            # TODO
-            geometry_gdf  = None
-        else:
-            raise ValueError("Check input!")
-        
-        start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
-        end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
-
         placeholder_out = f"""Inputs:
         product_key:
             type: {type(product_key)}
@@ -201,6 +188,36 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
             type: {type(end_date)}
             {end_date}
         """
+
+        if file:
+            geometry_gdf = gpd.read_file(file,)
+
+        elif sigpac_reference:
+            # Convert from dict to geojson
+            geometry, __  = find_from_cadastral_registry(sigpac_reference)
+            geojson = {
+                "type": "Feature",
+                "geometry": {
+                    "type": geometry["type"],
+                    "coordinates": [list(map(list, geometry["coordinates"][0]))]
+                },
+                "properties": {}
+            }
+            placeholder_out += f"geojson:\n{str(geojson)[:100]} ... {str(geojson)[-100:]}"
+
+            # Convert to GeoDataFrame
+            geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4258")
+
+        elif map_data:
+            # TODO
+            geometry_gdf  = None
+            geometry_gdf = gpd.read_file(file)
+        else:
+            raise ValueError("Check input!")
+        
+        start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
+        end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
+
 
         output_zip = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
         
