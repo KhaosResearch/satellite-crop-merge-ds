@@ -8,4 +8,7 @@ lbl_end,Fecha Fin,End Date
 lbl_prod,Seleccionar Producto,Select Product
 lbl_storage,Método de Almacenamiento,Storage Method
 btn_run,Obtener Datos,Get Data
-warn_space,"**Nota:** Asegúrese de tener espacio suficiente.","**Note:** Ensure you have sufficient storage space."
+msg_start,Iniciando descarga y procesamiento...,"Starting download and processing..."
+msg_success,¡Éxito! El archivo ZIP está listo.,"Success! ZIP file is ready."
+msg_error_geom,Error: No se detectó ninguna geometría.,"Error: No geometry detected."
+msg_map_sync,Área de interés capturada del mapa.,"Area of Interest captured from map."
