@@ -32,7 +32,7 @@ PRODUCT_TYPE_FILE_IDS = {
 SPECTRAL_INDICES_RESOLUTION = {
     "evi": "10",
     "evi2": "10",
-    "ndre": "20",
+    "ndre": "20",  # TODO: update to 60 when MinIO NDRE obj are also updated to 60
     "ndvi": "10",
     "osavi": "10",
     "ri": "10",

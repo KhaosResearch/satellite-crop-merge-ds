@@ -70,7 +70,7 @@ def download_merge_crop_minio(
         year_months: list[tuple],
         product_key: str,
         minio_client: Minio=SOURCE_CLIENT
-    ) -> str:
+    )->str:
     """It iterates over the MinIO database, using the args data to build the paths and download all relevant files.
     After collecting monthly composite bands/indices filepaths and content, it merges each into its own mosaic file.
     After merging, it crops the geometry and saves the cropped data locally and in a ZIP file.
@@ -91,7 +91,6 @@ def download_merge_crop_minio(
     """
     try:
         saved_files = []
-        has_readme = False
         geometry= geometry_gdf.geometry.values[0]
         
         if product_key not in ["images", "AOT", "TCI", "WVP"]:
@@ -105,45 +104,45 @@ def download_merge_crop_minio(
         temp_dir = tempfile.mkdtemp()
         for subfolder, file_ids in product_config.items():
             subfolder = f"R{subfolder}" if len(subfolder) > 0 else subfolder
-            os.path.join(product_prefix, subfolder)
             for year, month in year_months:
                 for file_id in file_ids:
-                    local_paths = []
                     logger.info(f"Accessing {file_id.upper()} data from {year} {month}...")
-                    for tile in tiles_list:
-                        # Build MinIO filepath
-                        if len(subfolder) > 0:  # For Image bands
-                            resolution_tag = str(subfolder)[1:] 
-                        else:  # For spectral index
-                            resolution_tag = f"{SPECTRAL_INDICES_RESOLUTION.get(file_id)}m"
-
-                        minio_obj_filename = f"T{tile}_{year}{month.split("-")[0]}_comp_{resolution_tag}_{file_id}.tif" 
-                        minio_obj_path = os.path.join(product_prefix, tile, year, month, subfolder, minio_obj_filename)
+                    # Build MinIO filepath
+                    if product_key == "images":  # For Image bands
+                        resolution_tags = [str(subfolder)[1:]] 
+                    elif "indices" in product_prefix:  # For spectral index
+                        resolution_tags = [f"{SPECTRAL_INDICES_RESOLUTION.get(file_id)}m"]
+                    else:
+                        resolution_tags = ["10m", "20m", "60m"]
+                    for resolution_tag in resolution_tags:
+                        local_paths = []
+                        for tile in tiles_list:
+                            minio_obj_filename = f"T{tile}_{year}{month.split("-")[0]}_comp_{resolution_tag}_{file_id}.tif" 
+                            minio_obj_path = os.path.join(product_prefix, tile, year, month, subfolder, minio_obj_filename)
+                            
+                            # Get the specific object in the MinIO
+                            local_file = os.path.join(temp_dir, f"{tile}_{file_id}.tif")
+                            minio_client.fget_object(SOURCE_BUCKET, minio_obj_path, local_file)
+                            local_paths.append(local_file)
                         
-                        # Get the specific object in the MinIO
-                        local_file = os.path.join(temp_dir, f"{tile}_{file_id}.tif")
-                        minio_client.fget_object(SOURCE_BUCKET, minio_obj_path, local_file)
-                        local_paths.append(local_file)
-                    
-                    datasets = [rasterio.open(p) for p in local_paths]
+                        datasets = [rasterio.open(p) for p in local_paths]
 
-                    if not datasets:
-                        continue
-                    mosaic, out_meta = _merge_image_data_to_mosaic(datasets)
+                        if not datasets:
+                            continue
+                        mosaic, out_meta = _merge_image_data_to_mosaic(datasets)
 
-                    # Cleanup after each month
-                    for ds in datasets:
-                        ds.close()
-                    for f in local_paths:
-                        try:
-                            os.remove(f)
-                        except:
-                            pass
+                        # Cleanup after each month
+                        for ds in datasets:
+                            ds.close()
+                        for f in local_paths:
+                            try:
+                                os.remove(f)
+                            except:
+                                pass
 
-                    out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
+                        out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
 
-                    has_readme = any("README" in file for file in saved_files)
-                    saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, out_image,out_meta, has_readme, minio_client)
+                        saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, out_image,out_meta, minio_client)
 
         zip_path = os.path.join(os.getcwd(), RESULTS_DIR_NAME, f"results_{product_key}.zip")
         logger.info(f"Zipping {zip_path}...")
@@ -166,7 +165,6 @@ def _get_tiles_of_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str]:
             The Setinel-2 Tile's ID list.
     """
     if not SENTINEL2_GRIDS_FILE or not os.path.exists(SENTINEL2_GRIDS_FILE):
-        print(os.getcwd())
         raise FileNotFoundError(
             f"GEOMETRY_FILE is not set or does not exist: {SENTINEL2_GRIDS_FILE}")
     # Sentinel-2 grid
@@ -319,8 +317,8 @@ def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tupl
         datasets (list[rasterio.io.DatasetReader]):
             The list of datasets associated to the files found.
     Returns:
-    tuple:
-        The moasic's data and metadata.
+        tuple:
+            The mosaic's data and metadata.
     """
     # Merge datasets for the month
     logger.info(f"Merging {len(datasets)} files...")
@@ -388,9 +386,9 @@ def _save_cropped_data(
         file_id: str,
         year: str,
         month: str,
+        resolution_tag: str,
         out_image: numpy.ndarray,
         out_meta: dict,
-        has_readme: bool,
         minio_client: Minio=SOURCE_CLIENT,
     )->list[str]:
     """It saves locally all files associated to the product.
@@ -408,16 +406,16 @@ def _save_cropped_data(
             The identifier to find the specific file/files. Usually, band/index name withpout extensions.
         year (str):
             Year `YYYY` string.
+        resolution_tag (str):
+            Resolution tag for the filename.
         month (str):
             Months `NN-MMM` string.
         out_image (numpy.ndarray):
             Cropped image data.
         out_meta (dict):
             Cropped image metadata.
-        has_readme (bool):
-            Whether the README file has been saved or not
         minio_client (Minio):
-            The MinIO client with access to the bucket. Only needed is `has_readme = False`.
+            The MinIO client with access to the bucket. Only needed if `saved_files` has not got the README.
     Returns:
         saved_files (list[str]):
             List of saved files associated to the product.
@@ -431,10 +429,6 @@ def _save_cropped_data(
                             month,
                             subfolder
                         )
-        if len(subfolder) > 0:  # For Image bands
-            resolution_tag = str(subfolder)[1:] 
-        else:  # For spectral index
-            resolution_tag = f"{SPECTRAL_INDICES_RESOLUTION.get(file_id)}m"
         
         # Generate results dir and filepath
         os.makedirs(output_dir, exist_ok=True)
@@ -449,10 +443,9 @@ def _save_cropped_data(
             dest.write(out_image)
 
         saved_files.append(output_path)
-
-        if not has_readme:
+        
+        if not any("README" in file for file in saved_files):
             saved_files = _save_readme(product_prefix, product_key, saved_files, minio_client)
-            has_readme = True
 
         return saved_files
     except Exception as e:
@@ -481,31 +474,38 @@ def _save_readme(
     """
     minio_path = os.path.join(product_prefix, f"README_{product_key}.pdf")
     output_path = os.path.join(RESULTS_DIR_NAME, minio_path)
-
     try:
-        logger.debug(f"Downloading README_{product_key} file")
-        # Download object from MinIO
-        response = minio_client.get_object(SOURCE_BUCKET, minio_path)
-        
-        # Save to local file
-        with open(output_path, "wb") as file_data:
-            for chunk in response.stream(32 * 1024):
-                file_data.write(chunk)
+        minio_client.stat_object(SOURCE_BUCKET, minio_path)
+        readme_exists_in_minio = True
+    except Exception:
+        readme_exists_in_minio = False
+    try:
+        if readme_exists_in_minio:
+            logger.debug(f"Downloading README_{product_key} file")
+            # Download object from MinIO
+            response = minio_client.get_object(SOURCE_BUCKET, minio_path)
+            
+            # Save to local file
+            with open(output_path, "wb") as file_data:
+                for chunk in response.stream(32 * 1024):
+                    file_data.write(chunk)
 
-        response.close()
-        response.release_conn()
+            response.close()
+            response.release_conn()
 
-        saved_files.append(output_path)
-        
+            saved_files.append(output_path)
+        else:
+            logger.warning(f"Object {minio_path} does not exist in {SOURCE_BUCKET}. Cancelling README download...")
+
         return saved_files
 
     except Exception as e:
-        print(f"Error downloading README in {minio_path}: {e}")
+        logger.error(f"Error downloading README in {minio_path}: {e}")
         raise e
 
 if __name__ == "__main__":
     
-    product_key = "Vegetation"
+    product_key = "WVP"
     geometry_gdf = gpd.read_file("../misc/geometry.geojson")
     start_date ="2024-01-01"
     end_date ="2024-12-01"
