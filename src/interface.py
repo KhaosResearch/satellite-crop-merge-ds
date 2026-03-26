@@ -107,9 +107,10 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
         
 
     get_data_btn = gr.Button(get_text(lang, "btn_run"), variant="primary")
-    with gr.Row():
-        output_log = gr.Textbox(label=get_text(lang, "lbl_logs"))
-        output_zip_file = gr.File(label=get_text(lang, "lbl_zip"))
+    with gr.Row(equal_height=True):
+        optional_geojson_file = gr.File(label=get_text(lang, "lbl_opt_geo"))
+        with gr.Column(scale=3):
+            output_zip_file = gr.File(label=get_text(lang, "lbl_zip"))
         
     # The 'load' function triggers our JS listener on page start
     demo.load(None, None, None, js=JS_RECIEVER)
@@ -129,7 +130,8 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             gr.update(value=get_text(lang, "btn_run")),
             gr.update(label=get_text(lang, "lbl_file")),
             gr.update(label=get_text(lang, "lbl_sigpac")),
-            gr.update(label=get_text(lang, "lbl_logs")),
+            # gr.update(label=get_text(lang, "lbl_logs")),
+            gr.update(label=get_text(lang, "lbl_opt_geo")),
             gr.update(label=get_text(lang, "lbl_zip")),
             lang
         ]
@@ -137,7 +139,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
     lang_selector.change(
         update_language, 
         inputs=[lang_selector], 
-        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, file_input, sigpac_input, output_log, output_zip_file, lang_state]
+        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
     )
 
     # Geometry Visibility
@@ -179,8 +181,10 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             errors = validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date)
             # 🚨 Raise if any errors
             if errors:
-                message = "Input Error:\n- " + "\n- ".join(errors)
+                message = f"{get_text(lang, "err_prefix")}<br>- " + "<br>- ".join(errors)
                 raise gr.Error(message)
+            else:
+                gr.Info(get_text(lang, "msg_start"))
 
             if file:
                 geometry_gdf = gpd.read_file(file,)
@@ -217,21 +221,19 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
                         
                     placeholder_out += f"Map geometry converted to GDF: {geometry_gdf.shape}"
                 except Exception as e:
-                    gr.Error(get_text(lang, "msg_error_geom", str(e)))
-                    return None, f"Error parsing map data: {str(e)}"
+                    raise gr.Error(get_text(lang, "msg_error_geom", str(e)))
             else:
                 print(placeholder_out)
                 raise ValueError("Check input!")
-            gr.Info(get_text(lang, "msg_start"))
             
             start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
             end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
 
-            output_zip = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
-            
+            output_zip, optional_geojson = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
             gr.Success(get_text(lang, "msg_success"))
 
-            return output_zip, placeholder_out
+            return output_zip, optional_geojson
+        
         finally:
             get_data_btn.interactive = True
 
@@ -240,12 +242,11 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
 
         # Language
         if lang not in ("en", "es"):
-            errors.append(f"Language must be 'en' or 'es'. Got: {lang}")
+            errors.append(get_text(lang, "err_lang", lang))
 
         # Product key
         if product_key not in PRODUCT_TYPE_FILE_IDS:
-            valid = ", ".join(PRODUCT_TYPE_FILE_IDS.keys())
-            errors.append(f"Product must be one of: {valid}. Got: {product_key}")
+            errors.append(get_text(lang, "err_prod", product_key))
 
         # Dates (assuming timestamps)
         try:
@@ -254,28 +255,25 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             today = datetime.now(timezone.utc)
 
             if start_dt > end_dt:
-                errors.append("Start date cannot be greater than end date.")
+                errors.append(get_text(lang, "err_end_date_gt"))
+
 
             if start_dt > today or end_dt > today:
-                errors.append("Dates cannot be greater than today.")
+                errors.append(get_text(lang, "err_date_gt_today"))
 
         except Exception:
-            errors.append("Invalid date format.")
+            errors.append(get_text(lang, "err_date_format"))
 
         # Geometry input
         if not file and not sigpac_reference and not map_data:
-            errors.append(
-                "Parcel geometry not specified. Upload a GeoJSON file, "
-                "provide a SIGPAC reference, or draw on the map."
-            )
-
+            errors.append(get_text(lang, "err_geom"))
         
         return errors
         
     get_data_btn.click(
         process_request,
         inputs=[lang_selector, product_select, file_input, sigpac_input, hidden_map_data, start_date, end_date],
-        outputs=[output_zip_file, output_log]
+        outputs=[output_zip_file, optional_geojson_file]
     )
 
 demo.launch(css=HIDE_MAP_TEXTBOX_CSS)

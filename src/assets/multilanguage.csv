@@ -10,8 +10,16 @@ lbl_file,Subir Archivo GeoJSON,Upload GeoJSON File
 lbl_sigpac,Referencia Catastral SIGPAC,SIGPAC Cadastral Reference
 btn_run,Obtener Datos,Get Data
 lbl_logs,Estado / Logs,Status / Logs
+lbl_opt_geo,Descargar GeoJSON de Parcela,Download Parcel's GeoJSON
 lbl_zip,Descargar ZIP,Download ZIP
 msg_start,Iniciando descarga y procesamiento...,"Starting download and processing..."
 msg_success,¡Éxito! El archivo ZIP está listo.,"Success! ZIP file is ready."
+msg_map_sync,Obteniendo área de interés capturada del mapa...,"Acquiring area of Interest captured from map..."
 msg_error_geom,Error: No se detectó ninguna geometría.,"Error: No geometry detected."
-msg_map_sync,Área de interés capturada del mapa.,"Area of Interest captured from map."
+err_prefix,Error de Entrada:,Input Error:
+err_lang,El idioma debe ser 'en' o 'es'. Detectado: ,Language must be 'en' or 'es'. Got: 
+err_prod,"El producto debe ser alguno de los siguientes: 'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow'. Detectado: ","Product must be one of the following:'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow'. Got: "
+err_end_date_gt,La fecha inicial no puede ser mayor que la fecha final.,Start date cannot be greater than end date.
+err_date_gt_today,La fecha no puede ser mayor que hoy.,Dates cannot be greater than today.
+err_date_format,Formato de fecha inválido.,Invalid date format.
+err_geom,"La geometría de la parcela no se especificó. Suba un archivo GeoJSON, introduzca una referencia de SIGPAC o dibújela en el mapa.","Parcel geometry not specified. Upload a GeoJSON file, provide a SIGPAC reference, or draw on the map."

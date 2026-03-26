@@ -58,10 +58,16 @@ def get_product_for_parcel(
         year_months=dates,
         product_key=product_key
     )
+
+    # Save geometry as GeoJSON
+    optional_geojson_filepath = os.path.join(RESULTS_DIR_NAME, "parcel_geometry.geojson")
+    with open(optional_geojson_filepath, "w", encoding="utf-8") as f:
+            f.write(geometry_gdf.to_json())
+    logger.info(f"Saved parcel's geometry to {optional_geojson_filepath}!")
     print()
     logger.info(f"--- TRANSFERENCE TIME FOR '{product_key.upper()}': {datetime.now() - init} ---\n")
 
-    return zip_path
+    return zip_path, optional_geojson_filepath
 
 def download_merge_crop_minio(
         geometry_gdf: gpd.GeoDataFrame,
