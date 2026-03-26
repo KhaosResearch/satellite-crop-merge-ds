@@ -1,0 +1,11 @@
+index,es,en
+title,"# Descarga de Datos Geoespaciales","# Geospatial Data Downloader"
+subtitle,"### Seleccione su producto, el rango temporal y su área de interés","### Select the product, temporal range and area of interes"
+lbl_lang,Seleccionar Idioma,Select Language
+lbl_geom,Método de Entrada de Geometría,Geometry Input Method
+lbl_start,Fecha de Inicio,Start Date
+lbl_end,Fecha Fin,End Date
+lbl_prod,Seleccionar Producto,Select Product
+lbl_storage,Método de Almacenamiento,Storage Method
+btn_run,Obtener Datos,Get Data
+warn_space,"**Nota:** Asegúrese de tener espacio suficiente.","**Note:** Ensure you have sufficient storage space."
