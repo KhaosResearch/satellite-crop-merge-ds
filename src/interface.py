@@ -55,45 +55,46 @@ def create_map():
 # --- UI Layout ---
 with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
     # State management for language
-    lang_state = gr.State("es")
+    lang = "es"  # Start in Spanish by deafult
+    lang_state = gr.State(lang)
     with gr.Row():
         lang_selector = gr.Radio(choices=["en", "es"], value="es", label="Language / Idioma")
     
-    title_md = gr.Markdown(get_text("es", "title"))
-    subtitle_md = gr.Markdown(get_text("es", "subtitle"))
-    description_md = gr.Markdown(read_markdown("es"))
+    title_md = gr.Markdown(get_text(lang, "title"))
+    subtitle_md = gr.Markdown(get_text(lang, "subtitle"))
+    description_md = gr.Markdown(read_markdown(lang))
 
     with gr.Row():
         # --- Product & Geometry ---
         with gr.Column(scale=1):
-            
-            # Products
-            product_select = gr.Radio(
-                choices=["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
-                label="Catalogue Product",
-                value="images",
-            )
-            
-            # Dates
-            today = datetime.now()
-            year_ago = today - timedelta(days=365)
-            
-            start_date = gr.DateTime(include_time=False, label="Start Date", value=year_ago.strftime('%Y-%m-%d'))
-            end_date = gr.DateTime(include_time=False, label="End Date", value=today.strftime('%Y-%m-%d'))
+            with gr.Row(scale=1, equal_height=True):
+                # Products
+                product_select = gr.Radio(
+                    choices=["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
+                    label=get_text(lang, "lbl_prod"),
+                    value="images",
+                )
+                
+                with gr.Column(scale=1):
+                    # Dates
+                    max_date = datetime(2025,12,31)
+                    year_ago = max_date - timedelta(days=364)
+                    start_date = gr.DateTime(include_time=False, label=get_text(lang, "lbl_start"), value=year_ago.strftime('%Y-%m-%d'))
+                    end_date = gr.DateTime(include_time=False, label=get_text(lang, "lbl_end"), value=max_date.strftime('%Y-%m-%d'))
 
             geom_type = gr.Radio(
                 choices=["GeoJSON Upload", "Sigpac Cadastral", "Draw on Map"],
-                label="Geometry Input",
+                label=get_text(lang, "lbl_geom"),
                 value="GeoJSON Upload",
             )
 
             # Conditional inputs for geometry
             file_input = gr.File(
-                label="Upload GeoJSON",
+                label=get_text(lang, "lbl_file"),
                 visible=True,
                 file_types=[".json", ".geojson"])
             
-            sigpac_input = gr.Textbox(label="Sigpac Reference", placeholder="i.e: 14049A033000130000ID...", visible=False)
+            sigpac_input = gr.Textbox(label=get_text(lang, "lbl_sigpac"), placeholder="i.e: 14049A033000130000ID...", visible=False)
             
             # Hidden textbox to receive JS geometry data
             hidden_map_data = gr.Textbox(
@@ -105,10 +106,10 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             map_box = gr.HTML(create_map(), visible=False)
         
 
-    get_data_btn = gr.Button("Obtener Datos", variant="primary")
+    get_data_btn = gr.Button(get_text(lang, "btn_run"), variant="primary")
     with gr.Row():
-        output_log = gr.Textbox(label="Status / Logs")
-        output_zip_file = gr.File(label="Output ZIP")
+        output_log = gr.Textbox(label=get_text(lang, "lbl_logs"))
+        output_zip_file = gr.File(label=get_text(lang, "lbl_zip"))
         
     # The 'load' function triggers our JS listener on page start
     demo.load(None, None, None, js=JS_RECIEVER)
@@ -126,13 +127,17 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             gr.update(label=get_text(lang, "lbl_end")),
             gr.update(label=get_text(lang, "lbl_prod")),
             gr.update(value=get_text(lang, "btn_run")),
+            gr.update(label=get_text(lang, "lbl_file")),
+            gr.update(label=get_text(lang, "lbl_sigpac")),
+            gr.update(label=get_text(lang, "lbl_logs")),
+            gr.update(label=get_text(lang, "lbl_zip")),
             lang
         ]
 
     lang_selector.change(
         update_language, 
         inputs=[lang_selector], 
-        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, lang_state]
+        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, file_input, sigpac_input, output_log, output_zip_file, lang_state]
     )
 
     # Geometry Visibility
@@ -224,7 +229,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
 
             output_zip = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
             
-            gr.Info(get_text(lang, "msg_success"))
+            gr.Success(get_text(lang, "msg_success"))
 
             return output_zip, placeholder_out
         finally:

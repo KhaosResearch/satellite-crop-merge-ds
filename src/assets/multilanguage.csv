@@ -2,12 +2,15 @@ index,es,en
 title,"# Descarga de Datos Geoespaciales","# Geospatial Data Downloader"
 subtitle,"### Seleccione su producto, el rango temporal y su área de interés","### Select the product, temporal range and area of interes"
 lbl_lang,Seleccionar Idioma,Select Language
-lbl_geom,Método de Entrada de Geometría,Geometry Input Method
-lbl_start,Fecha de Inicio,Start Date
-lbl_end,Fecha Fin,End Date
 lbl_prod,Seleccionar Producto,Select Product
-lbl_storage,Método de Almacenamiento,Storage Method
+lbl_start,Fecha Inicial,Start Date
+lbl_end,Fecha Final,End Date
+lbl_geom,Método de Entrada de Geometría,Geometry Input Method
+lbl_file,Subir Archivo GeoJSON,Upload GeoJSON File
+lbl_sigpac,Referencia Catastral SIGPAC,SIGPAC Cadastral Reference
 btn_run,Obtener Datos,Get Data
+lbl_logs,Estado / Logs,Status / Logs
+lbl_zip,Descargar ZIP,Download ZIP
 msg_start,Iniciando descarga y procesamiento...,"Starting download and processing..."
 msg_success,¡Éxito! El archivo ZIP está listo.,"Success! ZIP file is ready."
 msg_error_geom,Error: No se detectó ninguna geometría.,"Error: No geometry detected."

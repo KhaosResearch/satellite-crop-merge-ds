@@ -6,14 +6,14 @@ To provide access to the maps offered in the EDAAn catalog, the Geospatial Data 
 
 >**Please note that broad time ranges will take longer to process, especially for products with high file counts (such as `images` or `Vegetation`).**
 
-<details><summary>Table 1: Correspondence between product keys and catalog entries.</summary>
+<details><summary style="cursor: pointer;">Table 1: Correspondence between product keys and catalog entries.</summary>
 
 
 
 | Catalog Entry | Product Key | Description |
 | :--- | :---: | --- |
 | **Aerosols** | `AOT` | Aerosol Optical Thickness. |
-| **Satellite Imagery of Andalusia** | `images` | Monthly Sentinel-2 satellite images of Andalusia. Range 2017-2025. Cloud cover <5%. 10 m pixel resolution. Downloadable in 110x110 km tiles. Monthly composites per band (12 bands) in TIF format, plus natural color PNG. |
+| **Satellite Imagery of Andalusia** | `images` | Monthly Sentinel-2 satellite images of Andalusia. Range 2017-2025. Cloud cover <5%. 10 m pixel resolution. Monthly composites per band (12 bands) in TIF format, plus natural color PNG. |
 | **True Color Image** | `TCI` | Natural color composite. |
 | **Water Vapor** | `WVP` | Water Vapor content maps. |
 | **Bare Soil Maps of Andalusia** | `BareSoil` | Monthly bare soil presence maps. 20m resolution. Values from -1 (visible bare soil) to 1 (hidden soil). |
@@ -24,3 +24,5 @@ To provide access to the maps offered in the EDAAn catalog, the Geospatial Data 
 | **Vegetation Yellowing Maps** | `Yellow` | Monthly yellowing maps. 10m resolution. Values from -1 (green) to 1 (yellow). Due to flowering or seasonal changes. |
 
 </details>
+
+---
