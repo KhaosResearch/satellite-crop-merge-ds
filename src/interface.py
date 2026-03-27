@@ -1,13 +1,20 @@
+import json
 import folium
+import os
 
 import geopandas as gpd
 import gradio as gr
 import pandas as pd
 
+from branca.element import Element
 from folium.plugins import Draw
 from datetime import datetime, timedelta, timezone
 
+from sigpac_tools.find import find_from_cadastral_registry
+
+from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, PRODUCT_TYPE_FILE_IDS, get_draw_map_custom_script
 from utils.download_merge_crop import get_product_for_parcel
+
 # --- Multilingual Logic ---
 def load_translations():
     try:
@@ -19,8 +26,16 @@ def load_translations():
 
 translations = load_translations()
 
-def get_text(lang, key):
-    return translations.get(lang.lower(), {}).get(key, key)
+def get_text(lang, key, msg: str=""):
+    msg = "\n"+ msg if len(msg) > 0 else msg
+    return f"{translations.get(lang.lower(), {}).get(key, key)}{msg}"
+
+def read_markdown(lang):
+    path = f"assets/desc_{lang.lower()}.md"
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    return "Description not found."
 
 # --- Map Generation (Leaflet/Folium) ---
 def create_map():
@@ -32,98 +47,74 @@ def create_map():
         }
     )
     draw.add_to(m)
-    
-    # JavaScript to push drawing data to a hidden Gradio component
-    map_html = m._repr_html_()
-    script = """
-    <script>
-    var map = document.querySelector('iframe').contentWindow.map;
-    map.on('draw:created', function (e) {
-        var layer = e.layer;
-        var shape = layer.toGeoJSON();
-        var shape_for_gradio = JSON.stringify(shape);
-        parent.postMessage({type: 'map_geometry', data: shape_for_gradio}, '*');
-    });
-    </script>
-    """
-    return map_html
+    map_id = m.get_name()
+    m.get_root().header.add_child(Element(get_draw_map_custom_script(map_id)))
+
+    return m._repr_html_()    
 
 # --- UI Layout ---
-with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
+with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
     # State management for language
-    lang_state = gr.State("en")
+    lang = "es"  # Start in Spanish by deafult
+    lang_state = gr.State(lang)
     with gr.Row():
-        lang_selector = gr.Radio(choices=["es", "en"], value="es", label="Language / Idioma")
+        lang_selector = gr.Radio(choices=["en", "es"], value="es", label="Language / Idioma")
     
-    title_md = gr.Markdown(get_text("es", "title"))
-    subtitle_md = gr.Markdown(get_text("es", "subtitle"))
+    title_md = gr.Markdown(get_text(lang, "title"))
+    subtitle_md = gr.Markdown(get_text(lang, "subtitle"))
+    description_md = gr.Markdown(read_markdown(lang))
 
     with gr.Row():
         # --- Product & Geometry ---
         with gr.Column(scale=1):
-            
-            # Products
-            product_select = gr.Radio(
-                choices=["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
-                label="Catalogue Product",
-                value="images",
-            )
-            
-            # Dates
-            today = datetime.now()
-            year_ago = today - timedelta(days=365)
-            
-            start_date = gr.DateTime(include_time=False, label="Start Date", value=year_ago.strftime('%Y-%m-%d'))
-            end_date = gr.DateTime(include_time=False, label="End Date", value=today.strftime('%Y-%m-%d'))
+            with gr.Row(scale=1, equal_height=True):
+                # Products
+                product_select = gr.Radio(
+                    choices=["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
+                    label=get_text(lang, "lbl_prod"),
+                    value="images",
+                )
+                
+                with gr.Column(scale=1):
+                    # Dates
+                    max_date = datetime(2025,12,31)
+                    year_ago = max_date - timedelta(days=364)
+                    start_date = gr.DateTime(include_time=False, label=get_text(lang, "lbl_start"), value=year_ago.strftime('%Y-%m-%d'))
+                    end_date = gr.DateTime(include_time=False, label=get_text(lang, "lbl_end"), value=max_date.strftime('%Y-%m-%d'))
 
             geom_type = gr.Radio(
                 choices=["GeoJSON Upload", "Sigpac Cadastral", "Draw on Map"],
-                label="Geometry Input",
+                label=get_text(lang, "lbl_geom"),
                 value="GeoJSON Upload",
             )
 
             # Conditional inputs for geometry
             file_input = gr.File(
-                label="Upload GeoJSON",
+                label=get_text(lang, "lbl_file"),
                 visible=True,
                 file_types=[".json", ".geojson"])
-            sigpac_input = gr.Textbox(label="Sigpac Reference", placeholder="i.e: 14049A033000130000ID...", visible=False)
             
+            sigpac_input = gr.Textbox(label=get_text(lang, "lbl_sigpac"), placeholder="i.e: 14049A033000130000ID...", visible=False)
+            
+            # Hidden textbox to receive JS geometry data
+            hidden_map_data = gr.Textbox(
+                label="Internal Map Storage", 
+                elem_id="map_data_input",
+                visible=True  # Hides inmediately because of HIDE_MAP_TEXTBOX_CSS
+            )
             # Map hidden container
             map_box = gr.HTML(create_map(), visible=False)
-            # Hidden textbox to receive JS geometry data
-            hidden_geom_data = gr.Textbox(visible=False)
         
 
-        # --- Storage Configuration ---
-        with gr.Column(scale=1, visible=False):
-            storage_type = gr.Radio(
-                choices=["S3", "Azure"],
-                label="Provider",
-                value="Almacenamiento S3"
-            )
-            
-            # S3 Fields
-            with gr.Group(visible=False) as s3_group:
-                s3_id = gr.Textbox(label="ID de acceso")
-                s3_key = gr.Textbox(label="Clave de Acceso", type="password")
-                s3_url = gr.Textbox(label="Dirección de almacenamiento (URL)")
-                s3_bucket = gr.Textbox(label="Nombre del bucket")
-                s3_path = gr.Textbox(label="Ruta del objeto (opcional)")
-            
-            # Azure Fields
-            with gr.Group(visible=False) as azure_group:
-                az_token = gr.Textbox(label="Token SAS")
-                az_url = gr.Textbox(label="Ruta SAS completa")
-            
-            gr.Markdown("---")
-            warning_md = gr.Warning(get_text("es", "warn_space"))
-
-    get_data_btn = gr.Button("Obtener Datos", variant="primary")
-    with gr.Row():
-        output_log = gr.Textbox(label="Status / Logs")
-        output_zip_file = gr.File(label="Output ZIP")
-
+    get_data_btn = gr.Button(get_text(lang, "btn_run"), variant="primary")
+    with gr.Row(equal_height=True):
+        optional_geojson_file = gr.File(label=get_text(lang, "lbl_opt_geo"))
+        with gr.Column(scale=3):
+            output_zip_file = gr.File(label=get_text(lang, "lbl_zip"))
+        
+    # The 'load' function triggers our JS listener on page start
+    demo.load(None, None, None, js=JS_RECIEVER)
+    
     # --- Reactivity Logic ---
 
     # Language Switcher
@@ -131,23 +122,30 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
         return [
             gr.update(value=get_text(lang, "title")),
             gr.update(value=get_text(lang, "subtitle")),
+            gr.update(value=read_markdown(lang)),
             gr.update(label=get_text(lang, "lbl_geom")),
             gr.update(label=get_text(lang, "lbl_start")),
             gr.update(label=get_text(lang, "lbl_end")),
             gr.update(label=get_text(lang, "lbl_prod")),
-            gr.update(label=get_text(lang, "lbl_storage")),
             gr.update(value=get_text(lang, "btn_run")),
+            gr.update(label=get_text(lang, "lbl_file")),
+            gr.update(label=get_text(lang, "lbl_sigpac")),
+            # gr.update(label=get_text(lang, "lbl_logs")),
+            gr.update(label=get_text(lang, "lbl_opt_geo")),
+            gr.update(label=get_text(lang, "lbl_zip")),
             lang
         ]
 
     lang_selector.change(
         update_language, 
         inputs=[lang_selector], 
-        outputs=[title_md, subtitle_md, geom_type, start_date, end_date, product_select, storage_type, get_data_btn, lang_state]
+        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
     )
 
     # Geometry Visibility
     def toggle_geom_ui(choice):
+        if choice != "Draw on Map":
+            hidden_map_data.value = ""
         return [
             gr.update(visible=(choice == "GeoJSON Upload")),
             gr.update(visible=(choice == "Sigpac Cadastral")),
@@ -156,60 +154,126 @@ with gr.Blocks(theme="soft", title="Geo-Downloader") as demo:
     
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
-    # Storage Visibility
-    def toggle_storage_ui(choice):
-        if "S3" in choice:
-            return gr.update(visible=True), gr.update(visible=False)
-        return gr.update(visible=False), gr.update(visible=True)
-
-    storage_type.change(toggle_storage_ui, inputs=[storage_type], outputs=[s3_group, azure_group])
-
     # Execution Logic
-    def process_request(product_key, file, sigpac_reference, map_data, start_date, end_date):
-        if file:
-            geometry_gdf = gpd.read_file(file)
+    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date):
+        get_data_btn.interactive = False
+        try:
+            placeholder_out = f"""Inputs:
+            product_key:
+                type: {type(product_key)}
+                {product_key}
+            file:
+                type: {type(file)}
+                {file}
+            sigpac_reference:
+                type: {type(sigpac_reference)}
+                {sigpac_reference}
+            map_data:
+                type: {type(map_data)}
+                {map_data}
+            start_date:
+                type: {type(start_date)}
+                {start_date}
+            end_date:
+                type: {type(end_date)}
+                {end_date}
+            """
+            errors = validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date)
+            # 🚨 Raise if any errors
+            if errors:
+                message = f"{get_text(lang, "err_prefix")}<br>- " + "<br>- ".join(errors)
+                raise gr.Error(message)
+            else:
+                gr.Info(get_text(lang, "msg_start"))
 
-        elif sigpac_reference:
-            # TODO
-            geometry_gdf  = None
-        elif map_data:
-            # TODO
-            geometry_gdf  = None
-        else:
-            raise ValueError("Check input!")
+            if file:
+                geometry_gdf = gpd.read_file(file,)
+
+            elif sigpac_reference:
+                # Convert from dict to geojson
+                geometry, __  = find_from_cadastral_registry(sigpac_reference)
+                geojson = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": geometry["type"],
+                        "coordinates": [list(map(list, geometry["coordinates"][0]))]
+                    },
+                    "properties": {}
+                }
+                placeholder_out += f"geojson:\n{str(geojson)[:100]} ... {str(geojson)[-100:]}"
+
+                # Convert to GeoDataFrame
+                geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4258")
+
+            elif map_data:
+                gr.Info(get_text(lang, "msg_map_sync"))
+                try:
+                    # map_data arrives as a JSON string
+                    data = json.loads(map_data)
+                    
+                    # Use GeoPandas to read the JSON directly
+                    # We wrap it in a list if it's a single Feature
+                    if data.get("type") == "Feature":
+                        geometry_gdf = gpd.GeoDataFrame.from_features([data], crs="EPSG:4258")
+                    else:
+                        # Handle FeatureCollection
+                        geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4258")
+                        
+                    placeholder_out += f"Map geometry converted to GDF: {geometry_gdf.shape}"
+                except Exception as e:
+                    raise gr.Error(get_text(lang, "msg_error_geom", str(e)))
+            else:
+                print(placeholder_out)
+                raise ValueError("Check input!")
+            
+            start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
+            end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
+
+            output_zip, optional_geojson = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
+            gr.Success(get_text(lang, "msg_success"))
+
+            return output_zip, optional_geojson
         
-        start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
-        end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
+        finally:
+            get_data_btn.interactive = True
 
-        placeholder_out = f"""Inputs:
-        product_key:
-            type: {type(product_key)}
-            {product_key}
-        file:
-            type: {type(file)}
-            {file}
-        sigpac_reference:
-            type: {type(sigpac_reference)}
-            {sigpac_reference}
-        map_data:
-            type: {type(map_data)}
-            {map_data}
-        start_date:
-            type: {type(start_date)}
-            {start_date}
-        end_date:
-            type: {type(end_date)}
-            {end_date}
-        """
+    def validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date):
+        errors = []
 
-        output_zip = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
+        # Language
+        if lang not in ("en", "es"):
+            errors.append(get_text(lang, "err_lang", lang))
+
+        # Product key
+        if product_key not in PRODUCT_TYPE_FILE_IDS:
+            errors.append(get_text(lang, "err_prod", product_key))
+
+        # Dates (assuming timestamps)
+        try:
+            start_dt = datetime.fromtimestamp(start_date, tz=timezone.utc)
+            end_dt = datetime.fromtimestamp(end_date, tz=timezone.utc)
+            today = datetime.now(timezone.utc)
+
+            if start_dt > end_dt:
+                errors.append(get_text(lang, "err_end_date_gt"))
+
+
+            if start_dt > today or end_dt > today:
+                errors.append(get_text(lang, "err_date_gt_today"))
+
+        except Exception:
+            errors.append(get_text(lang, "err_date_format"))
+
+        # Geometry input
+        if not file and not sigpac_reference and not map_data:
+            errors.append(get_text(lang, "err_geom"))
         
-        return output_zip, placeholder_out
-
+        return errors
+        
     get_data_btn.click(
         process_request,
-        inputs=[product_select, file_input, sigpac_input, hidden_geom_data, start_date, end_date],
-        outputs=[output_zip_file, output_log]
+        inputs=[lang_selector, product_select, file_input, sigpac_input, hidden_map_data, start_date, end_date],
+        outputs=[output_zip_file, optional_geojson_file]
     )
 
-demo.launch()
+demo.launch(css=HIDE_MAP_TEXTBOX_CSS)
