@@ -1,6 +1,8 @@
 import os
+from pathlib import Path
 import random
 import string
+import threading
 
 import gradio as gr
 from dotenv import load_dotenv
@@ -9,8 +11,9 @@ from fastapi.security import APIKeyQuery
 from passlib.context import CryptContext
 from sqlmodel import Session
 
-from config.config import CURR_USER_FILE, ROOT_DIR
+from config.config import CURR_USER_FILE, RESULTS_FULL_PATH
 from config.database import User, create_db_and_tables, engine, select
+from utils.download_merge_crop import cleanup_old_jobs
 from interface import io
 import schema
 
@@ -59,6 +62,15 @@ def authenticate_user(username: str, password: str) -> bool:
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    start_cleanup()
+
+def start_cleanup():
+    thread = threading.Thread(
+        target=cleanup_old_jobs,
+        args=(Path(RESULTS_FULL_PATH),),
+        daemon=True
+    )
+    thread.start()
 
 
 @app.get("/json", response_model=dict)

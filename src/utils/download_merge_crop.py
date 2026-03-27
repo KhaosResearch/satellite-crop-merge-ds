@@ -5,17 +5,18 @@ import numpy
 import rasterio
 import tempfile
 import structlog
+import uuid
 
 import geopandas as gpd
 
-from datetime import datetime
+from datetime import datetime, time
 from minio import Minio
 from pathlib import Path
 from rasterio.io import MemoryFile
 from rasterio.mask import mask
 from rasterio.merge import merge
 
-from config.config import PRODUCT_TYPE_FILE_IDS, RESULTS_DIR_NAME, RESULTS_FULL_PATH, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
+from config.config import PRODUCT_TYPE_FILE_IDS, RESULTS_FULL_PATH, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
 
 logger = structlog.get_logger()
 
@@ -24,7 +25,8 @@ def get_product_for_parcel(
         product_key: str,
         geometry_gdf: gpd.GeoDataFrame,
         start_date: str,
-        end_date: str
+        end_date: str,
+        user: str,
     ) -> str:
     """Retrieve the specified product type for the given geometry and temporal range as a compressed ZIP file.
     Args:
@@ -52,15 +54,19 @@ def get_product_for_parcel(
     dates = _get_year_month_pair(start_date, end_date)
     logger.debug(dates)
 
+    # Create process data Job Directory
+    job_dir = _create_job_dir(RESULTS_FULL_PATH, user)
+
     zip_path = download_merge_crop_minio(
         geometry_gdf=geometry_gdf,
         tiles_list=tiles,
         year_months=dates,
-        product_key=product_key
+        product_key=product_key,
+        job_dir = job_dir,
     )
 
     # Save geometry as GeoJSON
-    optional_geojson_filepath = os.path.join(RESULTS_FULL_PATH, "parcel_geometry.geojson")
+    optional_geojson_filepath = os.path.join(job_dir, "parcel_geometry.geojson")
     with open(optional_geojson_filepath, "w", encoding="utf-8") as f:
             f.write(geometry_gdf.to_json())
     logger.info(f"Saved parcel's geometry to {optional_geojson_filepath}!")
@@ -74,6 +80,7 @@ def download_merge_crop_minio(
         tiles_list: list[str],
         year_months: list[tuple],
         product_key: str,
+        job_dir: Path,
         minio_client: Minio=SOURCE_CLIENT
     )->str:
     """It iterates over the MinIO database, using the args data to build the paths and download all relevant files.
@@ -94,9 +101,8 @@ def download_merge_crop_minio(
             The compressed ZIP filepath with all of the product data.
 
     """
-
     # Remove old result files
-    results_dir = Path(RESULTS_FULL_PATH)
+    results_dir = Path(job_dir)
     for item in results_dir.iterdir():
         try:
             if item.is_dir():
@@ -163,18 +169,16 @@ def download_merge_crop_minio(
                                 pass
 
                         out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
-                        saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, out_image, out_meta, minio_client)
+                        saved_files = _save_cropped_data(job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, out_image, out_meta, minio_client)
 
-        zip_path = os.path.join(RESULTS_FULL_PATH, f"results_{product_key}.zip")
+        zip_path = os.path.join(job_dir, f"results_{product_key}.zip")
         logger.info(f"Zipping {zip_path}...")
         with zipfile.ZipFile(zip_path, "w") as z:
             for file in saved_files:
-                print("file", file)
                 if file.endswith(".tif"):
-                    filepath = file.split(product_prefix, 1).pop()[1:]
+                    filepath = Path(file).relative_to(job_dir)
                 elif file.endswith(".pdf"): 
                     filepath = os.path.basename(file)
-                print("filepath", filepath)
                 z.write(file, arcname=filepath)
         return zip_path
     except Exception as e:
@@ -312,7 +316,14 @@ def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodatafra
         del mosaic
 
 # --- I/O LOGIC ---
+def _create_job_dir(base_dir: Path, user: str) -> Path:
+    job_id = str(uuid.uuid4())[:8]
+    job_dir = base_dir / user / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    return job_dir
+
 def _save_cropped_data(
+        job_dir: Path,
         product_key: str,
         saved_files: list[str],
         product_prefix: str,
@@ -357,7 +368,7 @@ def _save_cropped_data(
     try:
         year_month = f"{year}{month.split("-")[0]}"
         output_dir = os.path.join(
-                            RESULTS_FULL_PATH,
+                            job_dir,
                             product_prefix,
                             year,
                             month,
@@ -379,13 +390,14 @@ def _save_cropped_data(
         saved_files.append(output_path)
         
         if not any("README" in file for file in saved_files):
-            saved_files = _save_readme(product_prefix, product_key, saved_files, minio_client)
+            saved_files = _save_readme(job_dir, product_prefix, product_key, saved_files, minio_client)
 
         return saved_files
     except Exception as e:
         raise Exception(f"Error while saving: {e}")
 
 def _save_readme(
+        job_dir: Path,
         product_prefix: str,
         product_key: str,
         saved_files: list[str],
@@ -406,7 +418,7 @@ def _save_readme(
             List of saved files associated to the product.
     """
     minio_path = os.path.join(product_prefix, f"README_{product_key}.pdf")
-    output_path = os.path.join(RESULTS_FULL_PATH, minio_path)
+    output_path = os.path.join(job_dir, minio_path)
     readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client)
     try:
         if readme_exists_in_minio:
@@ -439,6 +451,24 @@ def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_
     except Exception:
         file_exists = False
     return file_exists
+
+def cleanup_old_jobs(base_dir: Path, max_age_hours=2):
+    while True:
+        now = time.time()
+
+        for user_dir in base_dir.iterdir():
+            if not user_dir.is_dir():
+                continue
+
+            for job_dir in user_dir.iterdir():
+                try:
+                    age = now - job_dir.stat().st_mtime
+                    if age > max_age_hours * 3600:
+                        shutil.rmtree(job_dir)
+                except Exception:
+                    pass
+
+        time.sleep(1800)  # every 30 min
 
 if __name__ == "__main__":
     

@@ -53,7 +53,7 @@ def create_map():
     return m._repr_html_()    
 
 # --- UI Layout ---
-with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
+with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as interface:
     # State management for language
     lang = "es"  # Start in Spanish by deafult
     lang_state = gr.State(lang)
@@ -113,7 +113,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             output_zip_file = gr.File(label=get_text(lang, "lbl_zip"))
         
     # The 'load' function triggers our JS listener on page start
-    demo.load(None, None, None, js=JS_RECIEVER)
+    interface.load(None, None, None, js=JS_RECIEVER)
     
     # --- Reactivity Logic ---
 
@@ -155,7 +155,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
     # Execution Logic
-    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date):
+    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date, user:str ="user-1234"):
         get_data_btn.interactive = False
         try:
             placeholder_out = f"""Inputs:
@@ -179,7 +179,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
                 {end_date}
             """
             errors = validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date)
-            # 🚨 Raise if any errors
+            # Raise if any errors
             if errors:
                 message = f"{get_text(lang, "err_prefix")}<br>- " + "<br>- ".join(errors)
                 raise gr.Error(message)
@@ -229,7 +229,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
             end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
 
-            output_zip, optional_geojson = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
+            output_zip, optional_geojson = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
             gr.Success(get_text(lang, "msg_success"))
 
             return output_zip, optional_geojson
@@ -276,4 +276,4 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
         outputs=[output_zip_file, optional_geojson_file]
     )
 
-demo.launch(css=HIDE_MAP_TEXTBOX_CSS)
+interface.launch(css=HIDE_MAP_TEXTBOX_CSS)
