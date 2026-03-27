@@ -17,11 +17,11 @@ To provide access to the maps offered in the EDAAn catalog, the Geospatial Data 
 | **True Color Image** | `TCI` | Natural color composite. |
 | **Water Vapor** | `WVP` | Water Vapor content maps. |
 | **Bare Soil Maps of Andalusia** | `BareSoil` | Monthly bare soil presence maps. 20m resolution. Values from -1 (visible bare soil) to 1 (hidden soil). |
-| **Vegetation Senescence Maps** | `Senescence` | Monthly senescence maps. 10m resolution. Values from -1 (green) to 1 (brown/reddish). Indicates dormancy or mortality. |
-| **Vegetation Productivity Maps** | `Vegetation` | Monthly productivity maps. 10m resolution. Values from -1 (dead) to 1 (high productivity). Associated with health, phenology, and biomass. |
-| **Vegetation Water Content** | `WaterContent` | Monthly water content maps. 20m resolution. Values from -1 (dry) to 1 (high water content). |
-| **Surface Water Mass Maps** | `WaterMass` | Monthly surface water maps. 20m resolution. Values from 0 (no water) to 1 (water). |
-| **Vegetation Yellowing Maps** | `Yellow` | Monthly yellowing maps. 10m resolution. Values from -1 (green) to 1 (yellow). Due to flowering or seasonal changes. |
+| **Vegetation Senescence Maps of Andalusia** | `Senescence` | Monthly senescence maps. 10m resolution. Values from -1 (green) to 1 (brown/reddish). Indicates dormancy or mortality. |
+| **Vegetation Productivity Maps of Andalusia** | `Vegetation` | Monthly productivity maps. 10m resolution. Values from -1 (dead) to 1 (high productivity). Associated with health, phenology, and biomass. |
+| **Vegetation Water Content of Andalusia** | `WaterContent` | Monthly water content maps. 20m resolution. Values from -1 (dry) to 1 (high water content). |
+| **Surface Water Mass Maps of Andalusia** | `WaterMass` | Monthly surface water maps. 20m resolution. Values from 0 (no water) to 1 (water). |
+| **Vegetation Yellowing Maps of Andalusia** | `Yellow` | Monthly yellowing maps. 10m resolution. Values from -1 (green) to 1 (yellow). Due to flowering or seasonal changes. |
 
 </details>
 
