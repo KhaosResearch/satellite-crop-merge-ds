@@ -212,3 +212,4 @@ __marimo__/
 */res/
 */results*/
 *.kml
+*current_user.txt
