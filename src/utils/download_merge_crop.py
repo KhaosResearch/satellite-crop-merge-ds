@@ -15,7 +15,7 @@ from rasterio.io import MemoryFile
 from rasterio.mask import mask
 from rasterio.merge import merge
 
-from config.config import PRODUCT_TYPE_FILE_IDS, RESULTS_DIR_NAME, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
+from config.config import PRODUCT_TYPE_FILE_IDS, RESULTS_DIR_NAME, RESULTS_FULL_PATH, SENTINEL2_GRIDS_FILE, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
 
 logger = structlog.get_logger()
 
@@ -60,7 +60,7 @@ def get_product_for_parcel(
     )
 
     # Save geometry as GeoJSON
-    optional_geojson_filepath = os.path.join(RESULTS_DIR_NAME, "parcel_geometry.geojson")
+    optional_geojson_filepath = os.path.join(RESULTS_FULL_PATH, "parcel_geometry.geojson")
     with open(optional_geojson_filepath, "w", encoding="utf-8") as f:
             f.write(geometry_gdf.to_json())
     logger.info(f"Saved parcel's geometry to {optional_geojson_filepath}!")
@@ -96,7 +96,7 @@ def download_merge_crop_minio(
     """
 
     # Remove old result files
-    results_dir = Path(__file__).resolve().parent.parent / RESULTS_DIR_NAME
+    results_dir = Path(RESULTS_FULL_PATH)
     for item in results_dir.iterdir():
         try:
             if item.is_dir():
@@ -163,14 +163,19 @@ def download_merge_crop_minio(
                                 pass
 
                         out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
+                        saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, out_image, out_meta, minio_client)
 
-                        saved_files = _save_cropped_data(product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, out_image,out_meta, minio_client)
-
-        zip_path = os.path.join(os.getcwd(), RESULTS_DIR_NAME, f"results_{product_key}.zip")
+        zip_path = os.path.join(RESULTS_FULL_PATH, f"results_{product_key}.zip")
         logger.info(f"Zipping {zip_path}...")
         with zipfile.ZipFile(zip_path, "w") as z:
             for file in saved_files:
-                z.write(file, arcname=file)
+                print("file", file)
+                if file.endswith(".tif"):
+                    filepath = file.split(product_prefix, 1).pop()[1:]
+                elif file.endswith(".pdf"): 
+                    filepath = os.path.basename(file)
+                print("filepath", filepath)
+                z.write(file, arcname=filepath)
         return zip_path
     except Exception as e:
         raise e
@@ -352,7 +357,7 @@ def _save_cropped_data(
     try:
         year_month = f"{year}{month.split("-")[0]}"
         output_dir = os.path.join(
-                            RESULTS_DIR_NAME,
+                            RESULTS_FULL_PATH,
                             product_prefix,
                             year,
                             month,
@@ -361,7 +366,7 @@ def _save_cropped_data(
         
         # Generate results dir and filepath
         os.makedirs(output_dir, exist_ok=True)
-        output_filename = f"{os.path.join(product_key, year_month, "comp", resolution_tag, file_id)}.tif".replace("/","_")
+        output_filename = f"{"_".join([product_key, year_month, "comp", resolution_tag, file_id])}.tif"
         output_path = os.path.join(output_dir, output_filename)
                         
         # logger.debug(f"Cropped image metadadata:\n{out_meta}")
@@ -401,7 +406,7 @@ def _save_readme(
             List of saved files associated to the product.
     """
     minio_path = os.path.join(product_prefix, f"README_{product_key}.pdf")
-    output_path = os.path.join(RESULTS_DIR_NAME, minio_path)
+    output_path = os.path.join(RESULTS_FULL_PATH, minio_path)
     readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client)
     try:
         if readme_exists_in_minio:
@@ -425,7 +430,7 @@ def _save_readme(
 
     except Exception as e:
         logger.error(f"Error downloading README in {minio_path}: {e}")
-        raise e
+        raise Exception(f"Error downloading README in {minio_path}: {e}")
 
 def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_name: str=SOURCE_BUCKET):
     try:
