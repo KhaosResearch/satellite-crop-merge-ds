@@ -460,6 +460,8 @@ def _save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
         for file in saved_files:
             if file.endswith(".tif"):
                 filepath = Path(file).relative_to(job_dir)
+                if "/indices/" in file:
+                    filepath = Path(str(filepath).split("indices/").pop())
             elif file.endswith(".pdf"): 
                 filepath = os.path.basename(file)
             else:
@@ -509,7 +511,7 @@ def run_cleanup_pass(
                 logger.error(f"Error occurred while cleaning up old job directory {job_dir}: {e}") # every 30 min
 
 if __name__ == "__main__":
-    
+    # Test run
     product_key = "WVP"
     geometry_gdf = gpd.read_file("../misc/geometry.geojson")
     start_date ="2024-01-01"
