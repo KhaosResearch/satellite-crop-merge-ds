@@ -5,6 +5,8 @@ import string
 import threading
 
 import gradio as gr
+
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import APIKeyQuery
@@ -13,8 +15,8 @@ from sqlmodel import Session
 
 from config.config import CURR_USER_FILE, RESULTS_FULL_PATH
 from config.database import User, create_db_and_tables, engine, select
-from utils.download_merge_crop import cleanup_old_jobs
-from interface import io
+from utils.download_merge_crop import run_cleanup_pass, cleanup_old_jobs
+from interface import interface
 import schema
 
 """ Read environment variables """
@@ -22,10 +24,25 @@ import schema
 load_dotenv()
 SCRIPT_NAME = os.getenv("SCRIPT_NAME", default="/")
 
+# --- Lifespan handler ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    base_dir = Path(RESULTS_FULL_PATH)
+
+    # Startup logic
+    create_db_and_tables()
+    run_cleanup_pass(base_dir=base_dir)
+    start_cleanup(base_dir=base_dir)
+
+    yield  #  App runs here
+
+    # Shutdown logic (optional for now)
+    # TODO: optional
+
 app = FastAPI(title="Satellite Crop and Merge Downloader API",
               description="Agrotech application to download satellite data from specific geometry",
-              root_path=SCRIPT_NAME)
-
+              root_path=SCRIPT_NAME,
+              lifespan=lifespan)
 
 x_api_key = os.getenv("API_KEY", default = "Cr0p4ndM3rg3S3rv1c3")
 
@@ -59,15 +76,10 @@ def authenticate_user(username: str, password: str) -> bool:
     # TODO: Set the user name as a global variable for other files to read and use!
     return True
 
-@app.on_event("startup")
-def on_startup():
-    create_db_and_tables()
-    start_cleanup()
-
-def start_cleanup():
+def start_cleanup(base_dir=Path(RESULTS_FULL_PATH)):
     thread = threading.Thread(
         target=cleanup_old_jobs,
-        args=(Path(RESULTS_FULL_PATH),),
+        args=(base_dir,),
         daemon=True
     )
     thread.start()
@@ -97,5 +109,5 @@ def new_user(api_key: str = Depends(query_scheme)) -> dict:
 
     return data
 
-app = gr.mount_gradio_app(app, io, path="/", root_path=SCRIPT_NAME, auth=authenticate_user)
+app = gr.mount_gradio_app(app, interface, path="/", root_path=SCRIPT_NAME, auth=authenticate_user)
 
