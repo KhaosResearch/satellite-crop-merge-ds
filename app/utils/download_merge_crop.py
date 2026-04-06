@@ -3,13 +3,14 @@ import shutil
 import zipfile
 import numpy
 import rasterio
-import tempfile
 import structlog
+import tempfile
+import time
 import uuid
 
 import geopandas as gpd
 
-from datetime import datetime, time
+from datetime import datetime
 from minio import Minio
 from pathlib import Path
 from rasterio.io import MemoryFile
@@ -498,9 +499,9 @@ def run_cleanup_pass(
             continue
 
         for job_dir in user_dir.iterdir():
-            logger.info(f"{job_dir} age: {age/3600:.2f} hours")
             try:
                 age = now - job_dir.stat().st_mtime
+                logger.info(f"{job_dir} age: {age/3600:.2f} hours")
                 if age > max_age_hours * 3600:
                     shutil.rmtree(job_dir)
                     logger.info(f"Deleted old job directory: {job_dir}")
@@ -513,5 +514,6 @@ if __name__ == "__main__":
     geometry_gdf = gpd.read_file("../misc/geometry.geojson")
     start_date ="2024-01-01"
     end_date ="2024-12-01"
+    user = "user-1234"
 
-    get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
+    get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)

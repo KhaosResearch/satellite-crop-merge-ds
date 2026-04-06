@@ -3,6 +3,7 @@ from pathlib import Path
 import random
 import string
 import threading
+import structlog
 
 import gradio as gr
 
@@ -13,16 +14,17 @@ from fastapi.security import APIKeyQuery
 from passlib.context import CryptContext
 from sqlmodel import Session
 
-from config.config import CURR_USER_FILE, RESULTS_FULL_PATH
+from config.config import CURR_USER_FILE, HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, RESULTS_FULL_PATH
 from config.database import User, create_db_and_tables, engine, select
 from utils.download_merge_crop import run_cleanup_pass, cleanup_old_jobs
 from interface import interface
 import schema
 
+logger = structlog.get_logger()
+
 """ Read environment variables """
 
 load_dotenv()
-SCRIPT_NAME = os.getenv("SCRIPT_NAME", default="/")
 
 # --- Lifespan handler ---
 @asynccontextmanager
@@ -41,7 +43,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Satellite Crop and Merge Downloader API",
               description="Agrotech application to download satellite data from specific geometry",
-              root_path=SCRIPT_NAME,
               lifespan=lifespan)
 
 x_api_key = os.getenv("API_KEY", default = "Cr0p4ndM3rg3S3rv1c3")
@@ -109,5 +110,17 @@ def new_user(api_key: str = Depends(query_scheme)) -> dict:
 
     return data
 
-app = gr.mount_gradio_app(app, interface, path="/", root_path=SCRIPT_NAME, auth=authenticate_user)
+app = gr.mount_gradio_app(
+    app,
+    interface,
+    path="",
+    auth=authenticate_user,
+    theme="soft",
+    head=JS_RECIEVER,
+    css=HIDE_MAP_TEXTBOX_CSS
+)
+logger.info("Gradio app mounted on FastAPI with authentication and custom head script.")
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from sigpac_tools.find import find_from_cadastral_registry
 
-from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, PRODUCT_TYPE_FILE_IDS, get_draw_map_custom_script
+from config.config import JS_RECIEVER, PRODUCT_TYPE_FILE_IDS, get_draw_map_custom_script
 from utils.download_merge_crop import get_product_for_parcel
 
 # --- Multilingual Logic ---
@@ -53,7 +53,7 @@ def create_map():
     return m._repr_html_()    
 
 # --- UI Layout ---
-with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as interface:
+with gr.Blocks(title="Geo-Downloader") as interface:
     # State management for language
     lang = "es"  # Start in Spanish by deafult
     lang_state = gr.State(lang)
@@ -155,9 +155,12 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as interf
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
     # Execution Logic
-    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date, user:str ="user-1234"):
+    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
         get_data_btn.interactive = False
         try:
+            # Gradio automatically populates request.username if auth is enabled
+            user = request.username if request and request.username is not None else "user-1234"
+
             placeholder_out = f"""Inputs:
             product_key:
                 type: {type(product_key)}
@@ -275,5 +278,3 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as interf
         inputs=[lang_selector, product_select, file_input, sigpac_input, hidden_map_data, start_date, end_date],
         outputs=[output_zip_file, optional_geojson_file]
     )
-
-interface.launch(css=HIDE_MAP_TEXTBOX_CSS)
