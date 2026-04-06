@@ -1,8 +1,8 @@
 import os
-from pathlib import Path
 import random
 import string
 import threading
+import bcrypt
 import structlog
 
 import gradio as gr
@@ -11,14 +11,14 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import APIKeyQuery
-from passlib.context import CryptContext
+from pathlib import Path
 from sqlmodel import Session
 
-from config.config import CURR_USER_FILE, HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, RESULTS_FULL_PATH
+from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, RESULTS_FULL_PATH
 from config.database import User, create_db_and_tables, engine, select
 from utils.download_merge_crop import run_cleanup_pass, cleanup_old_jobs
 from interface import interface
-import schema
+from schema import schema
 
 logger = structlog.get_logger()
 
@@ -49,22 +49,28 @@ x_api_key = os.getenv("API_KEY", default = "Cr0p4ndM3rg3S3rv1c3")
 
 query_scheme = APIKeyQuery(name="x_api_key")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def get_password() -> str:
     length = random.randint(8, 32)
     characters = string.ascii_letters + string.digits
-    password = "".join(random.choice(characters) for i in range(length))
-    return password
-
+    return "".join(random.choice(characters) for i in range(length))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Checkpw compares the plain text bytes against the hashed bytes
+        return bcrypt.checkpw(
+            plain_password.encode('utf-8'), 
+            hashed_password.encode('utf-8')
+        )
+    except Exception:
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
-
+    # Use bcrypt directly to hash the plain text
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed.decode('utf-8')
 
 def authenticate_user(username: str, password: str) -> bool:
     with Session(engine) as session:
@@ -74,7 +80,6 @@ def authenticate_user(username: str, password: str) -> bool:
         return False
     if not verify_password(password, user.password):
        return False
-    # TODO: Set the user name as a global variable for other files to read and use!
     return True
 
 def start_cleanup(base_dir=Path(RESULTS_FULL_PATH)):
@@ -90,14 +95,13 @@ def start_cleanup(base_dir=Path(RESULTS_FULL_PATH)):
 def new_user(api_key: str = Depends(query_scheme)) -> dict:
     if api_key != x_api_key:
         raise HTTPException(status_code=401, detail="Not authorized")
+    
+    logger.info("New user authenticated, generating credentials and response data...")
 
     username = "user-" + "".join(random.choices("0123456789", k=4))
     password = get_password()
     hashed_password = get_password_hash(password)
     db_user = User(username=username, password=hashed_password)
-
-    with open(CURR_USER_FILE, "w") as f:
-        f.write(username)
 
     with Session(engine) as session:
         session.add(db_user)
@@ -107,6 +111,8 @@ def new_user(api_key: str = Depends(query_scheme)) -> dict:
     data = schema.copy()
     data["jsonforms:data"]["username"] = username
     data["jsonforms:data"]["password"] = password
+
+    logger.info("User credentials generated and stored in database successfully!")
 
     return data
 
@@ -119,7 +125,6 @@ app = gr.mount_gradio_app(
     head=JS_RECIEVER,
     css=HIDE_MAP_TEXTBOX_CSS
 )
-logger.info("Gradio app mounted on FastAPI with authentication and custom head script.")
 
 if __name__ == "__main__":
     import uvicorn
