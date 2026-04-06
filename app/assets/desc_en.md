@@ -8,7 +8,7 @@ To provide access to the maps offered in the EDAAn catalog, the Geospatial Data 
 
 <details><summary style="cursor: pointer;">Table 1: Correspondence between product keys and catalog entries.</summary>
 
-
+---
 
 | Catalog Entry | Product Key | Description |
 | :--- | :---: | --- |

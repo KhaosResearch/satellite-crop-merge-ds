@@ -1,7 +1,7 @@
 schema = {
     "name": "khaos-research/Satellite-Crop-Merge",
     "description": """# Satellite Crop and Merge Downloader 
-Quick_desc
+An agrotech application to download satellite product data (images, indices etc.) using specific geometry. Products supported: EDAAn Data Space catalogue.
 
 ## Getting Started
 The app is available at [https://github.com/KhaosResearch/satellite-crop-merge-ds](https://github.com/KhaosResearch/satellite-crop-merge-ds).
@@ -14,7 +14,7 @@ The platform is organized into one single main section providing all specific in
 - The Satellite Crop and Merge Downloader is an agrotech application designed for the EDAAn Data Space. It allows users to acquire different satellite product in the form of a compressed collection of TIF files. Data is cut from the geometry input the user provides. The application takes a determined date range, takes the images from the source (MinIO or Sentinel Hub) and performs the Crop & Merge operations
 
 ### Input Information
-The application accepts the following parameters for analysis:
+The application takes the following parameters for retrieval and download:
 
 - **Product key:** The selected product's ID.
   - The app's description on the interface provides a detail of which product keys correspond to what entries in the EDAAn product catalogue.
