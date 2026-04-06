@@ -171,16 +171,9 @@ def download_merge_crop_minio(
                         out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
                         saved_files = _save_cropped_data(job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, out_image, out_meta, minio_client)
 
-        zip_path = os.path.join(job_dir, f"results_{product_key}.zip")
-        logger.info(f"Zipping {zip_path}...")
-        with zipfile.ZipFile(zip_path, "w") as z:
-            for file in saved_files:
-                if file.endswith(".tif"):
-                    filepath = Path(file).relative_to(job_dir)
-                elif file.endswith(".pdf"): 
-                    filepath = os.path.basename(file)
-                z.write(file, arcname=filepath)
+        zip_path = _save_to_zip(product_key, job_dir, saved_files)
         return zip_path
+    
     except Exception as e:
         raise e
     finally:
@@ -257,18 +250,33 @@ def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tupl
         tuple:
             The mosaic's data and metadata.
     """
-    # Merge datasets for the month
-    logger.info(f"Merging {len(datasets)} files...")
-    mosaic, transform = merge(datasets)
-    logger.info(f"Merging complete!")
+    if len(datasets) == 1:
+        ds = datasets[0]
 
-    # Use metadata from first dataset
-    out_meta = datasets[0].meta.copy()
-    out_meta.update({
-        "height": mosaic.shape[1],
-        "width": mosaic.shape[2],
-        "transform": transform
-    })
+        mosaic = ds.read()  # read full raster
+        transform = ds.transform
+
+        out_meta = ds.meta.copy()
+        out_meta.update({
+            "height": mosaic.shape[1],
+            "width": mosaic.shape[2],
+            "transform": transform
+        })
+
+        logger.info("Single dataset detected → skipping merge")
+    else:
+        # Merge datasets for the month
+        logger.info(f"Merging {len(datasets)} files...")
+        mosaic, transform = merge(datasets)
+        logger.info(f"Merging complete!")
+
+        # Use metadata from first dataset
+        out_meta = datasets[0].meta.copy()
+        out_meta.update({
+            "height": mosaic.shape[1],
+            "width": mosaic.shape[2],
+            "transform": transform
+        })
     return mosaic, out_meta
 
 def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodataframe)->tuple:
@@ -444,6 +452,20 @@ def _save_readme(
         logger.error(f"Error downloading README in {minio_path}: {e}")
         raise Exception(f"Error downloading README in {minio_path}: {e}")
 
+def _save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
+    zip_path = os.path.join(job_dir, f"results_{product_key}.zip")
+    logger.info(f"Zipping {zip_path}...")
+    with zipfile.ZipFile(zip_path, "w") as z:
+        for file in saved_files:
+            if file.endswith(".tif"):
+                filepath = Path(file).relative_to(job_dir)
+            elif file.endswith(".pdf"): 
+                filepath = os.path.basename(file)
+            else:
+                continue
+            z.write(file, arcname=filepath)
+    return zip_path
+
 def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_name: str=SOURCE_BUCKET):
     try:
         minio_client.stat_object(bucket_name, minio_path)
@@ -452,23 +474,38 @@ def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_
         file_exists = False
     return file_exists
 
-def cleanup_old_jobs(base_dir: Path, max_age_hours=2):
+def cleanup_old_jobs(
+        base_dir: Path=Path(RESULTS_FULL_PATH),
+        max_age_hours=2
+    ):
     while True:
-        now = time.time()
+        try:
+            run_cleanup_pass(base_dir, max_age_hours)
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
 
-        for user_dir in base_dir.iterdir():
-            if not user_dir.is_dir():
-                continue
+        time.sleep(1800) 
 
-            for job_dir in user_dir.iterdir():
-                try:
-                    age = now - job_dir.stat().st_mtime
-                    if age > max_age_hours * 3600:
-                        shutil.rmtree(job_dir)
-                except Exception:
-                    pass
+def run_cleanup_pass(
+        base_dir: Path=Path(RESULTS_FULL_PATH),
+        max_age_hours=2
+    ):
 
-        time.sleep(1800)  # every 30 min
+    now = time.time()
+
+    for user_dir in base_dir.iterdir():
+        if not user_dir.is_dir():
+            continue
+
+        for job_dir in user_dir.iterdir():
+            logger.info(f"{job_dir} age: {age/3600:.2f} hours")
+            try:
+                age = now - job_dir.stat().st_mtime
+                if age > max_age_hours * 3600:
+                    shutil.rmtree(job_dir)
+                    logger.info(f"Deleted old job directory: {job_dir}")
+            except Exception as e:
+                logger.error(f"Error occurred while cleaning up old job directory {job_dir}: {e}") # every 30 min
 
 if __name__ == "__main__":
     
