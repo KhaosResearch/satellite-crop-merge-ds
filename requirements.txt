@@ -5,7 +5,9 @@ geopandas
 gradio
 minio
 pandas
+passlib
 rasterio
 shapely
 sigpac-tools @ git+https://@github.com/KhaosResearch/sigpac-tools.git@dev
 structlog
+sqlmodel

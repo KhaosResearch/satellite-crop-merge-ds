@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from sigpac_tools.find import find_from_cadastral_registry
 
-from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, PRODUCT_TYPE_FILE_IDS, get_draw_map_custom_script
+from config.config import JS_RECIEVER, PRODUCT_TYPE_FILE_IDS, get_draw_map_custom_script
 from utils.download_merge_crop import get_product_for_parcel
 
 # --- Multilingual Logic ---
@@ -53,7 +53,7 @@ def create_map():
     return m._repr_html_()    
 
 # --- UI Layout ---
-with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
+with gr.Blocks(title="Geo-Downloader") as interface:
     # State management for language
     lang = "es"  # Start in Spanish by deafult
     lang_state = gr.State(lang)
@@ -113,7 +113,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             output_zip_file = gr.File(label=get_text(lang, "lbl_zip"))
         
     # The 'load' function triggers our JS listener on page start
-    demo.load(None, None, None, js=JS_RECIEVER)
+    interface.load(None, None, None, js=JS_RECIEVER)
     
     # --- Reactivity Logic ---
 
@@ -155,9 +155,12 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
     # Execution Logic
-    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date):
+    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
         get_data_btn.interactive = False
         try:
+            # Gradio automatically populates request.username if auth is enabled
+            user = request.username if request and request.username is not None else "user-1234"
+
             placeholder_out = f"""Inputs:
             product_key:
                 type: {type(product_key)}
@@ -179,7 +182,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
                 {end_date}
             """
             errors = validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date)
-            # 🚨 Raise if any errors
+            # Raise if any errors
             if errors:
                 message = f"{get_text(lang, "err_prefix")}<br>- " + "<br>- ".join(errors)
                 raise gr.Error(message)
@@ -229,7 +232,7 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
             start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
             end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
 
-            output_zip, optional_geojson = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date)
+            output_zip, optional_geojson = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
             gr.Success(get_text(lang, "msg_success"))
 
             return output_zip, optional_geojson
@@ -275,5 +278,3 @@ with gr.Blocks(theme="soft", title="Geo-Downloader", head=JS_RECIEVER) as demo:
         inputs=[lang_selector, product_select, file_input, sigpac_input, hidden_map_data, start_date, end_date],
         outputs=[output_zip_file, optional_geojson_file]
     )
-
-demo.launch(css=HIDE_MAP_TEXTBOX_CSS)

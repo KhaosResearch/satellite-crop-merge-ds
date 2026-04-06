@@ -1,5 +1,5 @@
 index,es,en
-title,"# Descarga de Datos Geoespaciales","# Geospatial Data Downloader"
+title,"# Servicio de Fusión y Recorte Satelital","# Satellite Crop and Merge Downloader"
 subtitle,"### Seleccione su producto, el rango temporal y su área de interés","### Select the product, temporal range and area of interes"
 lbl_lang,Seleccionar Idioma,Select Language
 lbl_prod,Seleccionar Producto,Select Product

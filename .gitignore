@@ -209,6 +209,7 @@ __marimo__/
 # Custom ignores
 *gradio/
 /misc
+*/db/
 */res/
 */results*/
 *.kml
