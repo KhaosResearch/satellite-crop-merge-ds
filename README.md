@@ -2,15 +2,15 @@
 This respository hosts an application to retrieve satellite data based on the products available in the EDAAn Data Space catalogue. it leverages a [Gradio](https://gradio.app/) interface for simple, intuitive access to KHAOS' MinIO database and Copernicus/Sentinel API.
 
 ## 🛠️Features:
-- **Authentication (`TODO`):** Secured login functionality using database credential generation and storage.
-- **Product Accessibility:** Select and access satellite image and spectral indices data over a temporal range.
-- **Parcel specific cropping:** Data is applied over the specified parcel geometry, which can be provided in a number of alternatives (GeoJSON file upload, SIGPAC cadastral reference or map polygon delimitation).
-- **Data handling:** Data is available for local download as a compressed file, along with all necessary documentation to use.
+- **🔒 Authentication:** Secured login functionality using database credential generation and storage.
+- **✅ Product Accessibility:** Select and access satellite image and spectral indices data over a temporal range.
+- **📋 Parcel specific cropping:** Data is applied over the specified parcel geometry, which can be provided in a number of alternatives (GeoJSON file upload, SIGPAC cadastral reference or map polygon delimitation).
+- **📊 Data handling:** Data is available for local download as a compressed file, along with all necessary documentation to use.
 
 ## 📦Requisites:
-- Python 3.12+
-- All dependencies installed (`requirements.txt`).
-- All `.env` variables with the following content:
+- 🐍 Python 3.12+
+- 📝 All dependencies installed (`requirements.txt`).
+- 🔢 All `.env` variables with the following content:
 ```bash
 # MinIO Root Credentials
 MINIO_HOST="minio-host"
@@ -44,3 +44,13 @@ pip install -r requirements.txt
 cd src
 python interface.py 
 ```
+>[!NOTE]
+>Authentication for development mode will take any input, since login always returns `True` by default here. Input username will be used to create the job directories.
+
+## 💻 Deployment:
+You can easily deploy the project using `uvicorn` and indicating both `host` and `port` for deployment:
+```bash
+cd app
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+

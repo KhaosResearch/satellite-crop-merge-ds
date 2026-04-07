@@ -10,7 +10,6 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR_NAME = "results"
 RESULTS_FULL_PATH = ROOT_DIR / RESULTS_DIR_NAME
 
-CURR_USER_FILE = os.path.join(ROOT_DIR, "current_user.txt")
 # --- MINIO CREDENTIALS ---
 SOURCE_BUCKET = os.environ.get('MINIO_BUCKET_NAME')
 SOURCE_CLIENT = get_src_minio_client()

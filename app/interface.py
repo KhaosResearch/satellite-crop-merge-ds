@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from sigpac_tools.find import find_from_cadastral_registry
 
-from config.config import JS_RECIEVER, PRODUCT_TYPE_FILE_IDS, get_draw_map_custom_script
+from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, PRODUCT_TYPE_FILE_IDS, get_draw_map_custom_script
 from utils.download_merge_crop import get_product_for_parcel
 
 # --- Multilingual Logic ---
@@ -130,7 +130,6 @@ with gr.Blocks(title="Geo-Downloader") as interface:
             gr.update(value=get_text(lang, "btn_run")),
             gr.update(label=get_text(lang, "lbl_file")),
             gr.update(label=get_text(lang, "lbl_sigpac")),
-            # gr.update(label=get_text(lang, "lbl_logs")),
             gr.update(label=get_text(lang, "lbl_opt_geo")),
             gr.update(label=get_text(lang, "lbl_zip")),
             lang
@@ -161,26 +160,6 @@ with gr.Blocks(title="Geo-Downloader") as interface:
             # Gradio automatically populates request.username if auth is enabled
             user = request.username if request and request.username is not None else "user-1234"
 
-            placeholder_out = f"""Inputs:
-            product_key:
-                type: {type(product_key)}
-                {product_key}
-            file:
-                type: {type(file)}
-                {file}
-            sigpac_reference:
-                type: {type(sigpac_reference)}
-                {sigpac_reference}
-            map_data:
-                type: {type(map_data)}
-                {map_data}
-            start_date:
-                type: {type(start_date)}
-                {start_date}
-            end_date:
-                type: {type(end_date)}
-                {end_date}
-            """
             errors = validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date)
             # Raise if any errors
             if errors:
@@ -203,7 +182,6 @@ with gr.Blocks(title="Geo-Downloader") as interface:
                     },
                     "properties": {}
                 }
-                placeholder_out += f"geojson:\n{str(geojson)[:100]} ... {str(geojson)[-100:]}"
 
                 # Convert to GeoDataFrame
                 geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4258")
@@ -215,18 +193,15 @@ with gr.Blocks(title="Geo-Downloader") as interface:
                     data = json.loads(map_data)
                     
                     # Use GeoPandas to read the JSON directly
-                    # We wrap it in a list if it's a single Feature
                     if data.get("type") == "Feature":
                         geometry_gdf = gpd.GeoDataFrame.from_features([data], crs="EPSG:4258")
                     else:
                         # Handle FeatureCollection
                         geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4258")
                         
-                    placeholder_out += f"Map geometry converted to GDF: {geometry_gdf.shape}"
                 except Exception as e:
                     raise gr.Error(get_text(lang, "msg_error_geom", str(e)))
             else:
-                print(placeholder_out)
                 raise ValueError("Check input!")
             
             start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
@@ -278,3 +253,6 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         inputs=[lang_selector, product_select, file_input, sigpac_input, hidden_map_data, start_date, end_date],
         outputs=[output_zip_file, optional_geojson_file]
     )
+
+if __name__ == "__main__":
+    interface.launch(theme="soft", head=JS_RECIEVER, css=HIDE_MAP_TEXTBOX_CSS, auth=lambda u, p: True)
