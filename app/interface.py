@@ -68,15 +68,24 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         # --- Product & Geometry ---
         with gr.Column(scale=1):
             with gr.Row(scale=1, equal_height=True):
-                # Products
-                product_select = gr.Radio(
+                
+                # ASTER Products
+                product_select_ast = gr.Radio(
+                    choices=["elevation", "slope", "aspect"],
+                    label=get_text(lang, "lbl_prod_ast"),
+                    value=None, 
+                )
+                
+                # SENTINEL Products
+                product_select_sen = gr.Radio(
                     choices=["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow"],
-                    label=get_text(lang, "lbl_prod"),
+                    label=get_text(lang, "lbl_prod_sen"),
                     value="images",
                 )
                 
-                with gr.Column(scale=1):
-                    # Dates
+                
+                # We wrap the dates in a Column we can hide
+                with gr.Column(scale=1) as date_column:
                     max_date = datetime(2025,12,31)
                     year_ago = max_date - timedelta(days=364)
                     start_date = gr.DateTime(include_time=False, label=get_text(lang, "lbl_start"), value=year_ago.strftime('%Y-%m-%d'))
@@ -117,6 +126,32 @@ with gr.Blocks(title="Geo-Downloader") as interface:
     
     # --- Reactivity Logic ---
 
+    # Product selection update
+    def on_sentinel_change(value):
+        # If Sentinel is selected, clear ASTER and show dates
+        if value:
+            return gr.update(value=None), gr.update(visible=True)
+        return gr.update(), gr.update()
+    
+    product_select_sen.change(
+        fn=on_sentinel_change,
+        inputs=[product_select_sen],
+        outputs=[product_select_ast, date_column]
+    )
+
+
+    def on_aster_change(value):
+        # If ASTER is selected, clear Sentinel and hide dates
+        if value:
+            return gr.update(value=None), gr.update(visible=False)
+        return gr.update(), gr.update()
+    
+    product_select_ast.change(
+        fn=on_aster_change,
+        inputs=[product_select_ast],
+        outputs=[product_select_sen, date_column]
+    )
+    
     # Language Switcher
     def update_language(lang):
         return [
@@ -126,7 +161,8 @@ with gr.Blocks(title="Geo-Downloader") as interface:
             gr.update(label=get_text(lang, "lbl_geom")),
             gr.update(label=get_text(lang, "lbl_start")),
             gr.update(label=get_text(lang, "lbl_end")),
-            gr.update(label=get_text(lang, "lbl_prod")),
+            gr.update(label=get_text(lang, "lbl_prod_sen")),
+            gr.update(label=get_text(lang, "lbl_prod_ast")),
             gr.update(value=get_text(lang, "btn_run")),
             gr.update(label=get_text(lang, "lbl_file")),
             gr.update(label=get_text(lang, "lbl_sigpac")),
@@ -138,7 +174,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
     lang_selector.change(
         update_language, 
         inputs=[lang_selector], 
-        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
+        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select_sen, product_select_ast, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
     )
 
     # Geometry Visibility
@@ -154,13 +190,19 @@ with gr.Blocks(title="Geo-Downloader") as interface:
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
     # Execution Logic
-    def process_request(lang, product_key, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
+    def process_request(lang, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
         get_data_btn.interactive = False
+        print("\n", product_key_sen, product_key_ast, "\n")
+        if product_key_sen is not None:
+            product_key = product_key_sen
+        else:
+            product_key = product_key_ast
+            start_date, end_date = 0.0, 0.1  # Not needed for ASTER products
         try:
             # Gradio automatically populates request.username if auth is enabled
             user = request.username if request and request.username is not None else "user-1234"
-
-            errors = validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date)
+            print("\n", product_key, start_date, end_date, "\n")
+            errors = validate_input(lang, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date)
             # Raise if any errors
             if errors:
                 message = f"{get_text(lang, "err_prefix")}<br>- " + "<br>- ".join(errors)
@@ -215,7 +257,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         finally:
             get_data_btn.interactive = True
 
-    def validate_input(lang, product_key, file, sigpac_reference, map_data, start_date, end_date):
+    def validate_input(lang, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date):
         errors = []
 
         # Language
@@ -223,8 +265,10 @@ with gr.Blocks(title="Geo-Downloader") as interface:
             errors.append(get_text(lang, "err_lang", lang))
 
         # Product key
-        if product_key not in PRODUCT_TYPE_FILE_IDS:
-            errors.append(get_text(lang, "err_prod", product_key))
+        if product_key_sen is not None and product_key_sen not in PRODUCT_TYPE_FILE_IDS:
+            errors.append(get_text(lang, "err_prod_sen", str(product_key_sen)))
+        if product_key_ast is not None and product_key_ast not in ["aspect", "elevation", "slope"]:
+            errors.append(get_text(lang, "err_prod_ast", str(product_key_ast)))
 
         # Dates (assuming timestamps)
         try:
@@ -250,7 +294,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         
     get_data_btn.click(
         process_request,
-        inputs=[lang_selector, product_select, file_input, sigpac_input, hidden_map_data, start_date, end_date],
+        inputs=[lang_selector, product_select_sen, product_select_ast, file_input, sigpac_input, hidden_map_data, start_date, end_date],
         outputs=[output_zip_file, optional_geojson_file]
     )
 
