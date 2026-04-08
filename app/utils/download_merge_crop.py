@@ -225,35 +225,21 @@ def get_sentinel_composites_data(
                         minio_client.fget_object(minio_bucket, minio_obj_path, local_file)
                         local_paths.append(local_file)
 
-                    datasets = [rasterio.open(p) for p in local_paths]
+                    # Process the merge-crop-save process
+                    saved_files = _process_merge_crop( local_paths,geometry, job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, minio_client, minio_bucket)
 
-                    if not datasets:
-                        continue
-                    mosaic, out_meta = _merge_image_data_to_mosaic(datasets)
-
-                        # Cleanup after each month
-                    for ds in datasets:
-                        ds.close()
-                    for f in local_paths:
-                        try:
-                            os.remove(f)
-                        except:
-                            pass
-
-                    out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
-                    saved_files = _save_cropped_data(job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, out_image, out_meta, minio_client, minio_bucket)
     return saved_files
 
 def get_aster_gdem_data(
-        tiles_list: list[str],
-        product_key: str,
-        job_dir: str,
-        minio_client: Minio,
-        minio_bucket: str,
-        saved_files: list[str],
-        geometry: gpd.GeoDataFrame,
-        temp_dir: str
-    )-> list[str]:
+    tiles_list: list[str],
+    product_key: str,
+    job_dir: str,
+    minio_client: Minio,
+    minio_bucket: str,
+    saved_files: list[str],
+    geometry: gpd.GeoDataFrame,
+    temp_dir: str
+)-> list[str]:
     """It iterates over the `aster-gdem-data` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data.
     Args:
         tiles_list (list[str]):
@@ -277,42 +263,30 @@ def get_aster_gdem_data(
             List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
     """
     logger.info(f"Acessign ASTER GDEM data...")
-    if product_key != "elevation":
-        filename = f"{product_key}.tif"
+    # Set the filename pattern for Aster GDEM products
+    extensions = [".tif", ".tfw"] if product_key != "elevation" else [".tif"]
+    prefix = f"ASTGTMV003_tile" if product_key == "elevation" else product_key
+
+    for ext in extensions:
+        # Build object filename pattern and process the download-merge-crop-save process
+        filename = f"{prefix}{ext}"
         local_paths = _download_parallel_aster_data(tiles_list, product_key, filename, temp_dir, minio_client, minio_bucket)
-    else:
-        elevation_filenames_prefix =f"ASTGTMV003_tile"
-        local_paths = _download_parallel_aster_data(tiles_list, product_key, elevation_filenames_prefix, temp_dir, minio_client, minio_bucket)
-
-    datasets = [rasterio.open(p) for p in local_paths]
-    mosaic, out_meta = _merge_image_data_to_mosaic(datasets)
-
-        # Cleanup after each month
-    for ds in datasets:
-        ds.close()
-    for f in local_paths:
-        try:
-            os.remove(f)
-        except:
-            pass
-
-    out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
-    saved_files = _save_cropped_data(job_dir, product_key, saved_files, product_key, "", file_id="", year="", month="", resolution_tag="", out_image=out_image, out_meta=out_meta, minio_client=minio_client, minio_bucket=minio_bucket)
+        saved_files = _process_merge_crop( local_paths,geometry, job_dir, product_key, saved_files, product_prefix=product_key, subfolder="", file_id="", year="", month="", resolution_tag="", minio_client=minio_client, minio_bucket=minio_bucket)
 
     return saved_files
 
 def _download_parallel_aster_data(
-        tiles_list:list[str],
-        product_key: str,
-        filename: str,
-        temp_dir: str,
-        minio_client: Minio=ASDATA_CLIENT,
-        minio_bucket: str=ASDATA_BUCKET
-    )->list[str]:
+    tiles_list:list[str],
+    product_key: str,
+    filename: str,
+    temp_dir: str,
+    minio_client: Minio=ASDATA_CLIENT,
+    minio_bucket: str=ASDATA_BUCKET
+)->list[str]:
     local_paths = []
     for tile in tiles_list:
         # Generate object name
-        filename = filename.replace("tile", f"{tile}_dem.tif")  # For elevation data, does not affect any other product
+        filename = filename.replace("tile", f"{tile}_dem")  # For elevation data, does not affect any other product
         minio_prefix = os.path.join(product_key, tile)
         object_name = os.path.join(minio_prefix, filename)
         # Check if object exists database
@@ -424,6 +398,83 @@ def _get_year_month_pair(start_date: str, end_date: str) -> list[tuple]:
 
     return year_months
 
+def _process_merge_crop(
+    local_paths: list[str],
+    geometry: dict,
+    job_dir: str,
+    product_key: str,
+    saved_files: list[str],
+    product_prefix: str,
+    subfolder: str,
+    file_id: str,
+    year: str,
+    month: str,
+    resolution_tag: str,
+    minio_client: Minio=SOURCE_CLIENT,
+    minio_bucket: str=SOURCE_BUCKET
+):
+    """Merges multiple raster datasets into a mosaic, crops them to a specific geometry, saves the result, and cleans up temporary local source files.
+
+    Args:
+        local_paths (list): List of strings/Paths to the downloaded temporary .tif files.
+        geometry (dict/GeoJSON): The geometry used to mask/crop the mosaic.
+        job_dir (str): Directory where the final output will be stored.
+        product_key (str): Identifier for the specific satellite product.
+        saved_files (list): Accumulated list of paths to successfully saved files.
+        product_prefix, subfolder, file_id, year, month, resolution_tag: 
+            Metadata strings used for naming the output file.
+        minio_client (optional): Client object if uploading directly to MinIO.
+        minio_bucket (optional): Target bucket name for MinIO uploads.
+
+    Returns:
+        list: The updated 'saved_files' list including the new processed file.
+    """
+    
+    datasets = []
+    output_dir = os.path.join(job_dir, product_prefix, year, month, subfolder)
+
+    try:
+        # Open all datasets
+        for p in local_paths:
+            if p.endswith(".tfw"):
+                # Save and add TFW file to saved files
+                tfw_output_path = os.path.join(output_dir, os.path.basename(p))
+                logger.debug(f"Saving TFW file to local as:\n\t\t\t\t   {tfw_output_path}")
+                shutil.copy(p, tfw_output_path)
+                saved_files.append(tfw_output_path)
+            else:
+                datasets.append(rasterio.open(p))
+        
+        if not datasets:
+            return saved_files
+
+        # Merge logic
+        mosaic, out_meta = _merge_image_data_to_mosaic(datasets)
+
+        # Crop logic
+        out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
+
+        # Save logic
+        saved_files = _save_cropped_data(
+            job_dir, product_key, saved_files, product_prefix, subfolder, 
+            file_id, year, month, resolution_tag, out_image, out_meta, 
+            minio_client, minio_bucket
+        )
+
+    finally:
+        # Close datasets and remove files
+        for ds in datasets:
+            ds.close()
+            
+        for f in local_paths:
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                except Exception as e:
+                    print(f"Warning: Could not remove temp file {f}: {e}")
+
+    return saved_files
+
 def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tuple:
     """Merges all same image data from different tiles into one mosaic
     Args:
@@ -514,20 +565,20 @@ def _create_job_dir(base_dir: Path, user: str) -> Path:
     return job_dir
 
 def _save_cropped_data(
-        job_dir: Path,
-        product_key: str,
-        saved_files: list[str],
-        product_prefix: str,
-        subfolder: str,
-        file_id: str,
-        year: str,
-        month: str,
-        resolution_tag: str,
-        out_image: numpy.ndarray,
-        out_meta: dict,
-        minio_client: Minio=SOURCE_CLIENT,
-        minio_bucket: str=SOURCE_BUCKET
-    )->list[str]:
+    job_dir: Path,
+    product_key: str,
+    saved_files: list[str],
+    product_prefix: str,
+    subfolder: str,
+    file_id: str,
+    year: str,
+    month: str,
+    resolution_tag: str,
+    out_image: numpy.ndarray,
+    out_meta: dict,
+    minio_client: Minio=SOURCE_CLIENT,
+    minio_bucket: str=SOURCE_BUCKET
+)->list[str]:
     """It saves locally all files associated to the product.
     It uses the arguments to mimic the MinIO dir structure on local.
     Args:
@@ -559,13 +610,7 @@ def _save_cropped_data(
 """
     try:
         year_month = f"{year}{month.split("-")[0]}"
-        output_dir = os.path.join(
-                            job_dir,
-                            product_prefix,
-                            year,
-                            month,
-                            subfolder
-                        )
+        output_dir = os.path.join(job_dir, product_prefix, year, month, subfolder)
         
         # Generate results dir and filepath
         os.makedirs(output_dir, exist_ok=True)
@@ -580,7 +625,8 @@ def _save_cropped_data(
             dest.write(out_image)
 
         saved_files.append(output_path)
-        
+   
+        # Get and save README
         if not any("README" in file for file in saved_files):
             saved_files = _save_readme(job_dir, product_prefix, product_key, saved_files, minio_client, minio_bucket)
 
@@ -589,13 +635,13 @@ def _save_cropped_data(
         raise Exception(f"Error while saving: {e}")
 
 def _save_readme(
-        job_dir: Path,
-        product_prefix: str,
-        product_key: str,
-        saved_files: list[str],
-        minio_client: Minio=SOURCE_CLIENT,
-        minio_bucket: str=SOURCE_BUCKET
-    )->list[str]:
+    job_dir: Path,
+    product_prefix: str,
+    product_key: str,
+    saved_files: list[str],
+    minio_client: Minio=SOURCE_CLIENT,
+    minio_bucket: str=SOURCE_BUCKET
+)->list[str]:
     """It specifically downloads and saves the selected product type readme from MinIO.
     Args:
         product_prefix (str):
@@ -642,7 +688,7 @@ def _save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
     logger.info(f"Zipping {zip_path}...")
     with zipfile.ZipFile(zip_path, "w") as z:
         for file in saved_files:
-            if file.endswith(".tif"):
+            if file.endswith(".tif") or file.endswith(".tfw"):
                 filepath = Path(file).relative_to(job_dir)
                 if "/indices/" in file:
                     filepath = Path(str(filepath).split("indices/").pop())
@@ -661,10 +707,7 @@ def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_
         file_exists = False
     return file_exists
 
-def cleanup_old_jobs(
-        base_dir: Path=Path(RESULTS_FULL_PATH),
-        max_age_hours=2
-    ):
+def cleanup_old_jobs(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
     while True:
         try:
             run_cleanup_pass(base_dir, max_age_hours)
@@ -673,10 +716,7 @@ def cleanup_old_jobs(
 
         time.sleep(1800) 
 
-def run_cleanup_pass(
-        base_dir: Path=Path(RESULTS_FULL_PATH),
-        max_age_hours=2
-    ):
+def run_cleanup_pass(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
 
     now = time.time()
 
@@ -699,7 +739,8 @@ if __name__ == "__main__":
     product_key = "WVP"
     geometry_gdf = gpd.read_file("../misc/geometry.geojson")
     start_date ="2024-01-01"
-    end_date ="2024-12-01"
+    end_date ="2024-01-01"
     user = "user-1234"
-    for product_key in ["slope", "elevation", "aspect"]:
-        get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
+    # for product_key in ["slope", "elevation", "aspect"]:
+    #     get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
+    get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
