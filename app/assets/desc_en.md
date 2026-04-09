@@ -1,12 +1,12 @@
 To provide access to the maps offered in the EDAAn catalog, the Geospatial Data Download service has been created. Through this interface, users can obtain results by following these steps:
 
-1. **Select your desired product:** A correspondence table linking product keys to their catalog entries is provided below.
-2. **Specify the time range:** The available temporal range covers from April 2017 to December 2025 inclusive.
+1. **Select your desired product:** Correspondence tables linking product keys to their catalog entries are provided below.
+2. **Specify the time range (only Sentinel products):** The available temporal range covers from April 2017 to December 2025 inclusive.
 3. **Input the parcel geometry:** This allows the system to clip the available data to your specific area of interest (AOI) and return targeted results.
 
 >**Please note that broad time ranges will take longer to process, especially for products with high file counts (such as `images` or `Vegetation`).**
 
-<details><summary style="cursor: pointer;">Table 1: Correspondence between product keys and catalog entries.</summary>
+<details><summary style="cursor: pointer;">Table 1: Correspondence between Sentinel product keys and catalog entries.</summary>
 
 ---
 
@@ -22,6 +22,20 @@ To provide access to the maps offered in the EDAAn catalog, the Geospatial Data 
 | **Vegetation Water Content of Andalusia** | `WaterContent` | Monthly water content maps. 20m resolution. Values from -1 (dry) to 1 (high water content). |
 | **Surface Water Mass Maps of Andalusia** | `WaterMass` | Monthly surface water maps. 20m resolution. Values from 0 (no water) to 1 (water). |
 | **Vegetation Yellowing Maps of Andalusia** | `Yellow` | Monthly yellowing maps. 10m resolution. Values from -1 (green) to 1 (yellow). Due to flowering or seasonal changes. |
+
+</details>
+
+>
+
+<details><summary style="cursor: pointer;">Table 2: Correspondence between ASTER product keys and catalog entries.</summary>
+
+---
+
+| Catalog Entry | Product Key | Description |
+| :--- | :---: | --- |
+| **Topographic Orientation Maps of Andalusia** | `aspect` | Digital map of slope orientations in the Andalusia region in image format, with a 25 m pixel resolution. Downloadable in adapted parcel sections, in TIF format. Range of values from 0 to 359 degrees, with 0 indicating north orientation, 180 south orientation, 90 east orientation, and 270 west orientation. |
+| **Topographic Maps of Andalusia** | `elevation` | Digital elevation map of the Andalusia region in image format, with a 25 m pixel resolution. Downloadable in adapted plot sections, in TIF format. Value range from 0 to 4000 m, in meters. |
+| **Topographic Slope Maps of Andalusia** | `slope` | Digital map of ground slopes of the Andalusia region in image format, with a 25 m pixel resolution. Downloadable in adapted plot sections, in TIF format. Value range from 0 to 90, in degrees of slope, with 0 being horizontal and 90 vertical. |
 
 </details>
 

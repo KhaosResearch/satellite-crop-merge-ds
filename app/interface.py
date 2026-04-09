@@ -71,7 +71,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
                 
                 # ASTER Products
                 product_select_ast = gr.Radio(
-                    choices=["elevation", "slope", "aspect"],
+                    choices=["aspect", "elevation", "slope"],
                     label=get_text(lang, "lbl_prod_ast"),
                     value=None, 
                 )
