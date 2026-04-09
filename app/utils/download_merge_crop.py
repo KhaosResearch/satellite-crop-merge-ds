@@ -137,7 +137,7 @@ def download_merge_crop_minio(
 
         temp_dir = tempfile.mkdtemp()
 
-        is_sentinel_data = product_key in ["images", "AOT", "TCI", "WVP"]
+        is_sentinel_data = product_key in PRODUCT_TYPE_FILE_IDS.keys()
 
         if is_sentinel_data:
             # Download-crop-merge from Sentinel composites data
@@ -271,7 +271,7 @@ def get_aster_gdem_data(
         # Build object filename pattern and process the download-merge-crop-save process
         filename = f"{prefix}{ext}"
         local_paths = _download_parallel_aster_data(tiles_list, product_key, filename, temp_dir, minio_client, minio_bucket)
-        saved_files = _process_merge_crop( local_paths,geometry, job_dir, product_key, saved_files, product_prefix=product_key, subfolder="", file_id="", year="", month="", resolution_tag="", minio_client=minio_client, minio_bucket=minio_bucket)
+        saved_files = _process_merge_crop( local_paths, geometry, job_dir, product_key, saved_files, product_prefix=product_key, subfolder="", file_id="", year="", month="", resolution_tag="-".join(tiles_list), minio_client=minio_client, minio_bucket=minio_bucket)
 
     return saved_files
 
@@ -438,7 +438,10 @@ def _process_merge_crop(
         for p in local_paths:
             if p.endswith(".tfw"):
                 # Save and add TFW file to saved files
-                tfw_output_path = os.path.join(output_dir, os.path.basename(p))
+                tiles_tag = resolution_tag  # Used store the tiles str for ASTER products
+                crop_tag = "crop" if not "-" in tiles_tag else "merge-crop"  # Multiple tiles = merge + crop, Single tile = only crop
+                output_filename = f"{"_".join(["ASTGTMV003", product_key, tiles_tag, crop_tag])}.tfw"
+                tfw_output_path = os.path.join(output_dir, output_filename)
                 logger.debug(f"Saving TFW file to local as:\n\t\t\t\t   {tfw_output_path}")
                 shutil.copy(p, tfw_output_path)
                 saved_files.append(tfw_output_path)
@@ -591,7 +594,7 @@ def _save_cropped_data(
         subfolder (str):
             Subfolder inside the prefix.
         file_id (str):
-            The identifier to find the specific file/files. Usually, band/index name withpout extensions.
+            The identifier to find the specific file/files. Usually, band/index name.
         year (str):
             Year `YYYY` string.
         resolution_tag (str):
@@ -614,10 +617,14 @@ def _save_cropped_data(
         
         # Generate results dir and filepath
         os.makedirs(output_dir, exist_ok=True)
-        output_filename = f"{"_".join([product_key, year_month, "comp", resolution_tag, file_id])}.tif"
+        if product_key not in PRODUCT_TYPE_FILE_IDS.keys():
+            tiles_tag = resolution_tag  # Used store the tiles str for ASTER products
+            crop_tag = "crop" if not "-" in tiles_tag else "merge-crop"  # Multiple tiles = merge + crop, Single tile = only crop
+            output_filename = f"{"_".join(["ASTGTMV003", product_key, tiles_tag, crop_tag])}.tif"
+        else:
+            output_filename = f"{"_".join([product_key, year_month, "comp", resolution_tag, file_id])}.tif"
         output_path = os.path.join(output_dir, output_filename)
                         
-        # logger.debug(f"Cropped image metadadata:\n{out_meta}")
         logger.debug(f"Saving cropped image data to local as:\n\t\t\t\t   {output_path}")
 
         # Save results
@@ -656,12 +663,17 @@ def _save_readme(
         saved_files (list[str]):
             List of saved files associated to the product.
     """
-    minio_path = os.path.join(product_prefix, f"README_{product_key}.pdf")
+    minio_path = os.path.join(product_prefix, f"README_{product_key}_v2.pdf")
     output_path = os.path.join(job_dir, minio_path)
     readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client, minio_bucket)
+    
+    if not readme_exists_in_minio:
+        output_path = output_path.replace("_v2", "")  # Try OG README if the v2 does not exist
+        readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client, minio_bucket)
+    
     try:
         if readme_exists_in_minio:
-            logger.debug(f"Downloading README_{product_key} file")
+            logger.debug(f"Downloading README file for {product_key.upper()}")
             # Download object from MinIO
             response = minio_client.get_object(minio_bucket, minio_path)
             
@@ -736,10 +748,10 @@ def run_cleanup_pass(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
 
 if __name__ == "__main__":
     # Test run
-    product_key = "WVP"
+    product_key = "WVP"  # 'aspect', 'elevation', 'slope' | 'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow'
     geometry_gdf = gpd.read_file("../misc/geometry.geojson")
     start_date ="2024-01-01"
-    end_date ="2024-01-01"
+    end_date ="2024-12-31"
     user = "user-1234"
     # for product_key in ["slope", "elevation", "aspect"]:
     #     get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
