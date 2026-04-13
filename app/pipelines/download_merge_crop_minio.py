@@ -8,9 +8,9 @@ import geopandas as gpd
 from minio import Minio
 from pathlib import Path
 
-from utils.io_utils import _file_exists_in_minio, save_to_zip
-from utils.geospatial_utils import process_merge_crop
 from config.config import ASDATA_BUCKET, ASDATA_CLIENT, PRODUCT_TYPE_FILE_IDS, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
+from utils.merge_crop_utils import process_merge_crop
+from utils.io_utils import _file_exists_in_minio, save_to_zip
 
 logger = structlog.get_logger()
 
@@ -223,7 +223,8 @@ def _download_parallel_aster_data(
             continue
 
         # Save object to local
-        local_file = os.path.join(temp_dir, os.path.basename(object_name))
+        output_name = object_name if object_name.endswith(".tfw") else os.path.basename(object_name)
+        local_file = os.path.join(temp_dir, output_name)
         minio_client.fget_object(minio_bucket, object_name, local_file)
 
         # Add to files list for merging
