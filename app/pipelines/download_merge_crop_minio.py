@@ -5,80 +5,16 @@ import tempfile
 
 import geopandas as gpd
 
-from datetime import datetime
 from minio import Minio
 from pathlib import Path
 
-from utils.io_utils import _file_exists_in_minio, create_job_dir, save_to_zip
-from utils.geospatial_utils import get_aster_tiles_of_geometry, get_sentinel_tiles_of_geometry, get_year_month_pair, process_merge_crop
-from config.config import ASDATA_BUCKET, ASDATA_CLIENT, PRODUCT_TYPE_FILE_IDS, RESULTS_FULL_PATH, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
+from utils.io_utils import _file_exists_in_minio, save_to_zip
+from utils.geospatial_utils import process_merge_crop
+from config.config import ASDATA_BUCKET, ASDATA_CLIENT, PRODUCT_TYPE_FILE_IDS, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
 
 logger = structlog.get_logger()
 
-# --- ORCHESTRATORS ---
-def get_product_for_parcel(
-        product_key: str,
-        geometry_gdf: gpd.GeoDataFrame,
-        start_date: str,
-        end_date: str,
-        user: str,
-    ) -> str:
-    """Retrieve the specified product type for the given geometry and temporal range as a compressed ZIP file.
-    Args:
-        product_key (str):
-            The ID of the product.
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
-        start_date (str):
-            The starting date in ISO format (`YYYY-MM-DD`).
-        end_date (str):
-            The finishing date in ISO format (`YYYY-MM-DD`).
-    Returns:
-        zip_path (str):
-            The compressed ZIP filepath with all of the product data.
-    """
-    if product_key in ["aspect", "elevation", "slope"]:
-        minio_client = ASDATA_CLIENT
-        minio_bucket = ASDATA_BUCKET
-        tiles = [get_aster_tiles_of_geometry(geometry_gdf)[0]]  # Get the first tile since they don't overlap and all of them have the same data for the overlapping area
-    elif product_key not in PRODUCT_TYPE_FILE_IDS.keys():
-        ve = ValueError(f"Error: Product key must be one of the following: {str(PRODUCT_TYPE_FILE_IDS.keys()).replace("[","").replace("[","")}. Product key was: {product_key}")
-        logger.error(ve)
-        raise ve
-    else:
-        minio_client = SOURCE_CLIENT
-        minio_bucket = SOURCE_BUCKET
-        tiles = get_sentinel_tiles_of_geometry(geometry_gdf)
-
-    init = datetime.now()
-    print()
-    logger.info(f"--- STARTING DOWNLOAD-MERGE-CROP PROCESS ---\n")
-    logger.debug(f"Tiles:\n{tiles}")
-    dates = get_year_month_pair(start_date, end_date)
-    logger.debug(dates)
-
-    # Create process data Job Directory
-    job_dir = create_job_dir(RESULTS_FULL_PATH, user)
-
-    zip_path = download_merge_crop_minio(
-        geometry_gdf=geometry_gdf,
-        tiles_list=tiles,
-        year_months=dates,
-        product_key=product_key,
-        job_dir = job_dir,
-        minio_client=minio_client,
-        minio_bucket=minio_bucket
-    )
-
-    # Save geometry as GeoJSON
-    optional_geojson_filepath = os.path.join(job_dir, "parcel_geometry.geojson")
-    with open(optional_geojson_filepath, "w", encoding="utf-8") as f:
-            f.write(geometry_gdf.to_json())
-    logger.info(f"Saved parcel's geometry to {optional_geojson_filepath}!")
-    print()
-    logger.info(f"--- TRANSFERENCE TIME FOR '{product_key.upper()}': {datetime.now() - init} ---\n")
-
-    return zip_path, optional_geojson_filepath
+# --- MINIO PIPELINE ---
 
 def download_merge_crop_minio(
         geometry_gdf: gpd.GeoDataFrame,
@@ -223,15 +159,15 @@ def get_sentinel_composites_data(
     return saved_files
 
 def get_aster_gdem_data(
-    tiles_list: list[str],
-    product_key: str,
-    job_dir: str,
-    minio_client: Minio,
-    minio_bucket: str,
-    saved_files: list[str],
-    geometry: gpd.GeoDataFrame,
-    temp_dir: str
-)-> list[str]:
+        tiles_list: list[str],
+        product_key: str,
+        job_dir: str,
+        minio_client: Minio,
+        minio_bucket: str,
+        saved_files: list[str],
+        geometry: gpd.GeoDataFrame,
+        temp_dir: str
+    )-> list[str]:
     """It iterates over the `aster-gdem-data` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data.
     Args:
         tiles_list (list[str]):
@@ -268,13 +204,13 @@ def get_aster_gdem_data(
     return saved_files
 
 def _download_parallel_aster_data(
-    tiles_list:list[str],
-    product_key: str,
-    filename: str,
-    temp_dir: str,
-    minio_client: Minio=ASDATA_CLIENT,
-    minio_bucket: str=ASDATA_BUCKET
-)->list[str]:
+        tiles_list:list[str],
+        product_key: str,
+        filename: str,
+        temp_dir: str,
+        minio_client: Minio=ASDATA_CLIENT,
+        minio_bucket: str=ASDATA_BUCKET
+    )->list[str]:
     local_paths = []
     for tile in tiles_list:
         # Generate object name
@@ -293,15 +229,3 @@ def _download_parallel_aster_data(
         # Add to files list for merging
         local_paths.append(local_file)
     return local_paths
-
-
-if __name__ == "__main__":
-    # Test run
-    product_key = "BareSoil"  # 'aspect', 'elevation', 'slope' | 'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow'
-    geometry_gdf = gpd.read_file("../misc/geometry.geojson")
-    start_date ="2024-01-01"
-    end_date ="2024-12-31"
-    user = "user-1234"
-    # for product_key in ["slope", "elevation", "aspect"]:
-    #     get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
-    get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)

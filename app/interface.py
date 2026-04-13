@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from sigpac_tools.find import find_from_cadastral_registry
 
 from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, PRODUCT_TYPE_FILE_IDS
-from utils.download_merge_crop import get_product_for_parcel
+from get_product_for_parcel import get_product_for_parcel
 from utils.interface_utils import create_map, get_text, read_markdown
 
 # --- UI Layout ---
