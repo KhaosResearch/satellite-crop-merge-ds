@@ -1,8 +1,16 @@
 Para poder tener acceso a los mapas ofertados en el catálogo del EDAAn, se ha creado el servicio de Descarga de Datos Geoespaciales. A través de la interfaz, el usuario puede obtener el resultado de la siguiente forma:
 
-1. **Seleccione el producto que desea:** Más adelante encontrará tablas de correspondencia de la clave del producto con su entrada en el catálogo.
-2. **Especifique el rango temporal a cubrir (sólo productos Sentinel):** El rango temporal puede cubrir desde Abril 2017 a Diciembre 2025 inclusive.
-3. **Introduzca la geometría de la parcela:** Esto permitirá recortar la parcela sobre los datos disponibles y devolver resultados que se apliquen sobre ese área de interés.
+1. **Seleccione la fuente de datos:**
+   - **`minio`:** Para el área de Andalucía. Es una base de datos que contiene los productos espectrales de Sentinel y los productos topográficos ASTER de la región. 
+   - **`sentinel`:** Para el resto del mundo. Depende de la API Sentinel Hub. Sólo dispone de productos espectrales. Más información [en este enlace](https://docs.sentinel-hub.com/api/latest/). 
+2. **Seleccione el producto que desea:** Más adelante encontrará tablas de correspondencia de la clave del producto con su entrada en el catálogo.
+3. **Especifique el rango temporal a cubrir (sólo productos Sentinel):** 
+   - **`minio`:** El rango temporal puede cubrir desde Abril 2017 a Diciembre 2025 inclusive.
+   - **`sentinel`:** Límites ampliados considerablemente. Se recomienda consultar la documentación específica.
+4. **Introduzca la geometría de la parcela:** Esto permitirá recortar la parcela sobre los datos disponibles y devolver resultados que se apliquen sobre ese área de interés.
+   - **`GeoJSON Upload`:** Use la geometría de su parcela para recortar los datos.
+   - **`SIGPAC Cadastral` _(Sólo España)_:** Introduzca los límites de la parcela directamente de la base de datos de SIGPAC usando una referencia válida.
+   - **`Draw on Map`:** Utilice la interfaz del mapa para dibujar manualmente si área de interés.
 
 >**Tenga en cuenta que los rangos temporales amplios tomarán su tiempo de procesar, especialmente para productos con muchos archivos asociados (`images` o `Vegetation`).**
 

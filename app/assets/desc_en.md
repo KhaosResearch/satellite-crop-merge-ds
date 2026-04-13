@@ -1,8 +1,16 @@
 To provide access to the maps offered in the EDAAn catalog, the Geospatial Data Download service has been created. Through this interface, users can obtain results by following these steps:
 
-1. **Select your desired product:** Correspondence tables linking product keys to their catalog entries are provided below.
-2. **Specify the time range (only Sentinel products):** The available temporal range covers from April 2017 to December 2025 inclusive.
-3. **Input the parcel geometry:** This allows the system to clip the available data to your specific area of interest (AOI) and return targeted results.
+1. **Select data source:**
+   - **`minio`:** For the Andalusia Spain area. The database contains the region's Sentinel spectral products and ASTER topography products. 
+   - **`sentinel`:** For the resto of the world. Depends on Sentinel Hub's API. Only spectral products available. More infor [on this link](https://docs.sentinel-hub.com/api/latest/). 
+2. **Select your desired product:** Correspondence tables linking product keys to their catalog entries are provided below.
+3. **Specify the time range (only Sentinel products):**
+   - **`minio`:** The available temporal range covers from April 2017 to December 2025 inclusive.
+   - **`sentinel`:** Range is considerably extended. It is recommended to check the specific documentation.
+4. **Input the parcel geometry:** This allows the system to clip the available data to your specific area of interest (AOI) and return targeted results.
+   - **`GeoJSON Upload`:** Use your parcel's geometry file to cut out the data.
+   - **`SIGPAC Cadastral` _(Spain only)_:** Input the parcel's limits straight from the SIGPAC database using a valid reference.
+   - **`Draw on Map`:** Use the map interface to manually draw your area of interest.
 
 >**Please note that broad time ranges will take longer to process, especially for products with high file counts (such as `images` or `Vegetation`).**
 

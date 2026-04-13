@@ -28,6 +28,9 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         # --- Product & Geometry ---
         with gr.Column(scale=1):
             with gr.Row(scale=1, equal_height=True):
+                source_selector = gr.Radio(choices=["minio", "sentinel"], value="minio", label=get_text(lang, "lbl_src"))
+
+            with gr.Row(scale=1, equal_height=True):
                 
                 # ASTER Products
                 product_select_ast = gr.Radio(
@@ -111,7 +114,20 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         inputs=[product_select_ast],
         outputs=[product_select_sen, date_column]
     )
+
+    def on_source_change(src_value, sen_value):
+        if src_value == "sentinel":
+            sen_value = sen_value if sen_value is not None else "images"
+            return gr.update(visible=False, value=None), gr.update(visible=True, value=sen_value)
+        else:
+            return gr.update(visible=True), gr.update(value=product_select_sen.value)
     
+    source_selector.change(
+        fn=on_source_change,
+        inputs=[source_selector, product_select_sen],
+        outputs=[product_select_ast, product_select_sen]
+    )
+
     # Language Switcher
     def update_language(lang):
         return [
@@ -121,6 +137,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
             gr.update(label=get_text(lang, "lbl_geom")),
             gr.update(label=get_text(lang, "lbl_start")),
             gr.update(label=get_text(lang, "lbl_end")),
+            gr.update(label=get_text(lang, "lbl_src")),
             gr.update(label=get_text(lang, "lbl_prod_sen")),
             gr.update(label=get_text(lang, "lbl_prod_ast")),
             gr.update(value=get_text(lang, "btn_run")),
@@ -134,7 +151,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
     lang_selector.change(
         update_language, 
         inputs=[lang_selector], 
-        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select_sen, product_select_ast, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
+        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, source_selector, product_select_sen, product_select_ast, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
     )
 
     # Geometry Visibility
@@ -150,9 +167,8 @@ with gr.Blocks(title="Geo-Downloader") as interface:
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
     # Execution Logic
-    def process_request(lang, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
+    def process_request(lang, source_selector, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
         get_data_btn.interactive = False
-        print("\n", product_key_sen, product_key_ast, "\n")
         if product_key_sen is not None:
             product_key = product_key_sen
         else:
@@ -161,8 +177,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         try:
             # Gradio automatically populates request.username if auth is enabled
             user = request.username if request and request.username is not None else "user-1234"
-            print("\n", product_key, start_date, end_date, "\n")
-            errors = validate_input(lang, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date)
+            errors = validate_input(lang, source_selector, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date)
             # Raise if any errors
             if errors:
                 message = f"{get_text(lang, "err_prefix")}<br>- " + "<br>- ".join(errors)
@@ -217,13 +232,17 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         finally:
             get_data_btn.interactive = True
 
-    def validate_input(lang, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date):
+    def validate_input(lang, source_selector, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date):
         errors = []
 
         # Language
         if lang not in ("en", "es"):
             errors.append(get_text(lang, "err_lang", lang))
-
+        if source_selector not in ("minio", "sentinel"):
+            errors.append(get_text(lang, "err_src_sel", str(source_selector)))
+        elif source_selector == 'sentinel' and product_key_ast is not None:
+            errors.append(get_text(lang, "err_src_ast", "sentinel"))
+        
         # Product key
         if product_key_sen is not None and product_key_sen not in PRODUCT_TYPE_FILE_IDS:
             errors.append(get_text(lang, "err_prod_sen", str(product_key_sen)))
@@ -254,9 +273,9 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         
     get_data_btn.click(
         process_request,
-        inputs=[lang_selector, product_select_sen, product_select_ast, file_input, sigpac_input, hidden_map_data, start_date, end_date],
+        inputs=[lang_selector, source_selector, product_select_sen, product_select_ast, file_input, sigpac_input, hidden_map_data, start_date, end_date],
         outputs=[output_zip_file, optional_geojson_file]
     )
 
 if __name__ == "__main__":
-    interface.launch(theme="soft", head=JS_RECIEVER, css=HIDE_MAP_TEXTBOX_CSS, auth=lambda u, p: True)
+    interface.launch(theme="gradio/monochrome", head=JS_RECIEVER, css=HIDE_MAP_TEXTBOX_CSS, auth=lambda u, p: True)
