@@ -42,7 +42,7 @@ def get_product_for_parcel(
     if use_minio_src and product_key in ["aspect", "elevation", "slope"]:
         minio_client = ASDATA_CLIENT
         minio_bucket = ASDATA_BUCKET
-        tiles = [get_aster_tiles_from_geometry(geometry_gdf)[0]]  # Get the first tile since they don't overlap and all of them have the same data for the overlapping area
+        tiles = get_aster_tiles_from_geometry(geometry_gdf)
     elif product_key not in PRODUCT_TYPE_FILE_IDS.keys():
         ve = ValueError(f"Error: Product key must be one of the following: {str(PRODUCT_TYPE_FILE_IDS.keys()).replace("[","").replace("[","")}. Product key was: {product_key}")
         logger.error(ve)

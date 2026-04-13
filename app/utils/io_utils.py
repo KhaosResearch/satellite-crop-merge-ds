@@ -116,7 +116,7 @@ def create_job_dir(base_dir: Path, user: str) -> Path:
 def cleanup_old_jobs(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
     while True:
         try:
-            _run_cleanup_pass(base_dir, max_age_hours)
+            run_cleanup_pass(base_dir, max_age_hours)
         except Exception as e:
             logger.error(f"Cleanup error: {e}")
 
@@ -192,7 +192,7 @@ def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_
         file_exists = False
     return file_exists
 
-def _run_cleanup_pass(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
+def run_cleanup_pass(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
     """Deletes job directories older than `max_age_hours` hours.
     Args:
         base_dir (Path): The base directory where job directories are stored.

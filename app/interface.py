@@ -201,7 +201,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
                 }
 
                 # Convert to GeoDataFrame
-                geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4258")
+                geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4326")
 
             elif map_data:
                 gr.Info(get_text(lang, "msg_map_sync"))
@@ -211,10 +211,10 @@ with gr.Blocks(title="Geo-Downloader") as interface:
                     
                     # Use GeoPandas to read the JSON directly
                     if data.get("type") == "Feature":
-                        geometry_gdf = gpd.GeoDataFrame.from_features([data], crs="EPSG:4258")
+                        geometry_gdf = gpd.GeoDataFrame.from_features([data], crs="EPSG:4326")
                     else:
                         # Handle FeatureCollection
-                        geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4258")
+                        geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4326")
                         
                 except Exception as e:
                     raise gr.Error(get_text(lang, "msg_error_geom", str(e)))
@@ -223,8 +223,8 @@ with gr.Blocks(title="Geo-Downloader") as interface:
             
             start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
             end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
-
-            output_zip, optional_geojson = get_product_for_parcel(product_key, geometry_gdf, start_date, end_date, user)
+            src = source_selector
+            output_zip, optional_geojson = get_product_for_parcel(src, product_key, geometry_gdf, start_date, end_date, user)
             gr.Success(get_text(lang, "msg_success"))
 
             return output_zip, optional_geojson
