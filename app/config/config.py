@@ -127,3 +127,48 @@ def get_draw_map_custom_script(map_id: str):
     }});
     </script>
     """
+
+# --- SENTINEL PRODUCT TYPE DATA ---
+PRODUCT_TYPE_INDEX = {
+    "images": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B11', 'B12'],
+    "BareSoil": ["bsi"],
+    "Senescence": ["bri", "cri1"],
+    "Vegetation": ["evi", "evi2", "ndre", "ndvi", "osavi", "ri"],
+    "WaterContent": ["ndsi", "mndwi"],
+    "WaterMass": ["ndwi", "gvmi"],
+    "Yellow": ["ndyi"],
+    "AOT": ["AOT"],
+    "TCI": ["TCI"],
+    "WVP": ["WVP"],
+}
+
+INDEX_BANDS = {
+    "bsi": ["B02", "B04", "B08", "B11"],
+    "bri": ["B03", "B05", "B08"],
+    "cri1": ["B03", "B05", "B08"],
+    "evi": ["B02", "B04", "B08"],
+    "evi2": ["B02", "B04", "B08"],
+    "gvmi": ["B8A", "B11"],
+    "ndsi": ["B03", "B11"],
+    "mndwi": ["B03", "B08"],
+    "ndwi": ["B03", "B08"],
+    "bsi": ["B02", "B04", "B08", "B11"],
+    "bsi": ["B02", "B04", "B08", "B11"],
+    # TODO: Finish mapping
+}
+
+BAND_RESOLUTION_DATA = {
+    "B01": "10",
+    "B02": "10",
+    "B03": "10",
+    "B04": "10",
+    "B05": "20",
+    "B06": "20",
+    "B07": "20",
+    "B08": "10",
+    "B8A": "20",
+    "B09": "20",
+    "B10": "60",
+    "B11": "20",
+    "B12": "20",
+}
