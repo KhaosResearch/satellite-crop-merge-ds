@@ -195,11 +195,12 @@ def get_aster_gdem_data(
     extensions = [".tif", ".tfw"] if product_key != "elevation" else [".tif"]
     prefix = f"ASTGTMV003_tile" if product_key == "elevation" else product_key
 
+    local_paths = []
     for ext in extensions:
         # Build object filename pattern and process the download-merge-crop-save process
         filename = f"{prefix}{ext}"
-        local_paths = _download_parallel_aster_data(tiles_list, product_key, filename, temp_dir, minio_client, minio_bucket)
-        saved_files = process_merge_crop( local_paths, geometry, job_dir, product_key, saved_files, product_prefix=product_key, subfolder="", file_id="", year="", month="", resolution_tag="-".join(tiles_list), minio_client=minio_client, minio_bucket=minio_bucket)
+        local_paths.extend(_download_parallel_aster_data(tiles_list, product_key, filename, temp_dir, minio_client, minio_bucket))
+    saved_files = process_merge_crop( local_paths, geometry, job_dir, product_key, saved_files, product_prefix=product_key, subfolder="", file_id="", year="", month="", resolution_tag="-".join(tiles_list), minio_client=minio_client, minio_bucket=minio_bucket)
 
     return saved_files
 
@@ -223,7 +224,7 @@ def _download_parallel_aster_data(
             continue
 
         # Save object to local
-        output_name = object_name if object_name.endswith(".tfw") else os.path.basename(object_name)
+        output_name = object_name
         local_file = os.path.join(temp_dir, output_name)
         minio_client.fget_object(minio_bucket, object_name, local_file)
 

@@ -1,12 +1,12 @@
 import numpy
 import os
 import rasterio
-import shutil
 import structlog
 import tempfile
 
 import geopandas as gpd
 
+from affine import Affine
 from minio import Minio
 from rasterio.io import MemoryFile
 from rasterio.mask import mask
@@ -62,19 +62,49 @@ def process_merge_crop(
     datasets = []
     output_dir = os.path.join(job_dir, product_prefix, year, month, subfolder)
 
+    # For TFW-TIF ATER products merging
+    mem_files = [] 
     try:
         # Open all datasets
+        local_paths.sort()
+        current_transform = None
+
         for p in local_paths:
             if p.endswith(".tfw"):
-                # Save and add TFW file to saved files
-                tiles_tag = os.path.dirname(p).split("/").pop()  # Assuming tile ID is parent directory
-                output_filename = f"{"_".join(["ASTGTMV003", product_key, tiles_tag])}.tfw"
-                tfw_output_path = os.path.join(output_dir, output_filename)
-                if tfw_output_path not in saved_files:
-                    logger.debug(f"Saving TFW file to local as:\n\t\t\t\t   {tfw_output_path}")
-                    shutil.copy(p, tfw_output_path)
-                    saved_files.append(tfw_output_path)
+                with open(p, "r") as f:
+                    # Extracts numeric values, ignoring labels
+                    content = f.read().replace('[', ' ').replace(']', ' ').split()
+                    nums = [float(x) for x in content if x.replace('.', '', 1).replace('-', '', 1).isdigit()]
+                    
+                    if len(nums) >= 6:
+                        # TFW order: x-res, rotation-y, rotation-x, y-res, upper-left-x, upper-left-y
+                        # Affine order: a, b, c, d, e, f
+                        current_transform = Affine(nums[0], nums[2], nums[4], nums[1], nums[3], nums[5])
+            
+            elif p.endswith(".tif") and current_transform:
+                # Open TIF and apply transform found in previous iteration
+                src = rasterio.open(p)
+                
+                # We use a MemoryFile to 'bake' the transform into the dataset object
+                mem = MemoryFile()
+                mem_files.append(mem) 
+                
+                meta = src.meta.copy()
+                meta.update({
+                    "transform": current_transform,
+                    "crs": src.crs if src.crs else "EPSG:4326"
+                })
+                
+                with mem.open(**meta) as dest:
+                    dest.write(src.read())
+                
+                # Append the correctly georeferenced dataset for the mosaic
+                datasets.append(mem.open())
+                
+                src.close()
+                current_transform = None # Reset for next pair
             else:
+                # For Sentinel TIF files
                 datasets.append(rasterio.open(p))
         if not datasets:
             return saved_files
@@ -92,10 +122,14 @@ def process_merge_crop(
             minio_client, minio_bucket
         )
 
+    except Exception as e:
+        ex = Exception(f'Error while merge-crop: {str(e)}')
+        logger.error(ex)
+        raise ex
     finally:
         # Close datasets and remove files
-        for ds in datasets:
-            ds.close()
+        for ds in datasets: ds.close()
+        for mem in mem_files: mem.close()
             
         for f in local_paths:
             if os.path.exists(f):
