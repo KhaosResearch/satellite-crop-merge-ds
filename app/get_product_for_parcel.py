@@ -5,7 +5,7 @@ import geopandas as gpd
 
 from datetime import datetime
 
-from pipelines.dowload_merge_crop_sentinelhub import download_crop_sentinelhub
+from pipelines.download_crop_sentinelhub import download_crop_sentinelhub
 from config.config import ASDATA_BUCKET, ASDATA_CLIENT, PRODUCT_TYPE_FILE_IDS, RESULTS_FULL_PATH, SOURCE_BUCKET, SOURCE_CLIENT
 from pipelines.download_merge_crop_minio import download_merge_crop_minio
 from utils.io_utils import create_job_dir
