@@ -154,7 +154,7 @@ def get_sentinel_composites_data(
                         local_paths.append(local_file)
 
                     # Process the merge-crop-save process
-                    saved_files = process_merge_crop( local_paths,geometry, job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, minio_client, minio_bucket)
+                    saved_files = process_merge_crop( local_paths, geometry, job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, minio_client, minio_bucket)
 
     return saved_files
 

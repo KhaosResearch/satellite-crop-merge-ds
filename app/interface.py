@@ -159,9 +159,9 @@ with gr.Blocks(title="Geo-Downloader") as interface:
         if choice != "Draw on Map":
             hidden_map_data.value = ""
         return [
-            gr.update(visible=(choice == "GeoJSON Upload")),
-            gr.update(visible=(choice == "Sigpac Cadastral")),
-            gr.update(visible=(choice == "Draw on Map"))
+            gr.update(visible=("geojson" in str(choice).lower())),
+            gr.update(visible=("sigpac" in str(choice).lower())),
+            gr.update(visible=("map" in str(choice).lower()))
         ]
     
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
@@ -180,7 +180,7 @@ with gr.Blocks(title="Geo-Downloader") as interface:
             errors = validate_input(lang, source_selector, product_key_sen, product_key_ast, file, sigpac_reference, map_data, start_date, end_date)
             # Raise if any errors
             if errors:
-                message = f"{get_text(lang, "err_prefix")}<br>- " + "<br>- ".join(errors)
+                message = f'{get_text(lang, "err_prefix")}<br>- ' + "<br>- ".join(errors)
                 raise gr.Error(message)
             else:
                 gr.Info(get_text(lang, "msg_start"))
