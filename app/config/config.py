@@ -38,20 +38,20 @@ PRODUCT_TYPE_FILE_IDS = {
 }
 
 SPECTRAL_INDICES_RESOLUTION = {
-    "evi": "10",
-    "evi2": "10",
-    "ndre": "20",  # TODO: update to 60 when MinIO NDRE obj are also updated to 60
-    "ndvi": "10",
-    "osavi": "10",
-    "ri": "10",
-    "ndwi": "10",
-    "gvmi": "20",
-    "mndwi": "20",
-    "ndsi": "20",
-    "ndyi": "10",
-    "bri": "20",
-    "cri1": "20",
-    "bsi": "20",
+    "evi": 10,
+    "evi2": 10,
+    "ndre": 20,  # TODO: update to 60 when MinIO NDRE obj are also updated to 60
+    "ndvi": 10,
+    "osavi": 10,
+    "ri": 10,
+    "ndwi": 10,
+    "gvmi": 20,
+    "mndwi": 20,
+    "ndsi": 20,
+    "ndyi": 10,
+    "bri": 20,
+    "cri1": 20,
+    "bsi": 20,
 }
 
 # --- JS INTERFACE SCRIPTS ---
@@ -129,6 +129,23 @@ def get_draw_map_custom_script(map_id: str):
     """
 
 # --- SENTINEL PRODUCT TYPE DATA ---
+from sentinelhub import SHConfig
+
+# Setup Copernicus client credentials
+CLIENT_ID = os.getenv('COPERNICUS_CLIENT_ID')
+CLIENT_SECRET = os.getenv('COPERNICUS_CLIENT_SECRET')
+CONFIG_NAME = str(os.getenv('COPERNICUS_CONFIG_NAME'))
+
+# Setup config params for Copernicus dataspace Ecosystem users
+SENTINELHUB_CONFIG = SHConfig()
+
+SENTINELHUB_CONFIG.sh_client_id = CLIENT_ID
+SENTINELHUB_CONFIG.sh_client_secret = CLIENT_SECRET
+SENTINELHUB_CONFIG.sh_base_url = 'https://sh.dataspace.copernicus.eu'
+SENTINELHUB_CONFIG.sh_token_url = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'
+
+SENTINELHUB_CONFIG.save(CONFIG_NAME)
+
 PRODUCT_TYPE_INDEX = {
     "images": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B11', 'B12'],
     "BareSoil": ["bsi"],
@@ -142,33 +159,19 @@ PRODUCT_TYPE_INDEX = {
     "WVP": ["WVP"],
 }
 
-INDEX_BANDS = {
+SPECTRAL_INDICES_BANDS = {
     "bsi": ["B02", "B04", "B08", "B11"],
     "bri": ["B03", "B05", "B08"],
-    "cri1": ["B03", "B05", "B08"],
+    "cri1": ["B03", "B02"],
     "evi": ["B02", "B04", "B08"],
-    "evi2": ["B02", "B04", "B08"],
+    "evi2": ["B04", "B08"],
     "gvmi": ["B8A", "B11"],
+    "mndwi": ["B03", "B11"],
     "ndsi": ["B03", "B11"],
-    "mndwi": ["B03", "B08"],
+    "ndre": ["B05", "B09"],
+    "ndvi": ["B04", "B08"],
     "ndwi": ["B03", "B08"],
-    "bsi": ["B02", "B04", "B08", "B11"],
-    "bsi": ["B02", "B04", "B08", "B11"],
-    # TODO: Finish mapping
-}
-
-BAND_RESOLUTION_DATA = {
-    "B01": "10",
-    "B02": "10",
-    "B03": "10",
-    "B04": "10",
-    "B05": "20",
-    "B06": "20",
-    "B07": "20",
-    "B08": "10",
-    "B8A": "20",
-    "B09": "20",
-    "B10": "60",
-    "B11": "20",
-    "B12": "20",
+    "ndyi": ["B03", "B02"],
+    "osavi": ["B04", "B08"],
+    "ri": ["B03", "B04"],
 }
