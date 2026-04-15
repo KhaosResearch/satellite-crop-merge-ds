@@ -60,8 +60,6 @@ def process_merge_crop(
     """
     
     datasets = []
-    output_dir = os.path.join(job_dir, product_prefix, year, month, subfolder)
-
     # For TFW-TIF ATER products merging
     mem_files = [] 
     try:

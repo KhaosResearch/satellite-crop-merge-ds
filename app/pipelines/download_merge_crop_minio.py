@@ -8,7 +8,7 @@ import geopandas as gpd
 from minio import Minio
 from pathlib import Path
 
-from config.config import ASDATA_BUCKET, ASDATA_CLIENT, PRODUCT_TYPE_FILE_IDS, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_RESOLUTION
+from config.config import ASDATA_BUCKET, ASDATA_CLIENT, PRODUCT_TYPE_FILE_IDS, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_DATA
 from utils.merge_crop_utils import process_merge_crop
 from utils.io_utils import _file_exists_in_minio, save_to_zip
 
@@ -133,7 +133,7 @@ def get_sentinel_composites_data(
                 if product_key == "images":  # For Image bands
                     resolution_tags = [str(subfolder)[1:]] 
                 elif "indices" in product_prefix:  # For spectral index
-                    resolution_tags = [f"{SPECTRAL_INDICES_RESOLUTION.get(file_id)}m"]
+                    resolution_tags = [f"{SPECTRAL_INDICES_DATA.get(file_id).get("resolution")}m"]
                 else:
                     resolution_tags = ["10m", "20m", "60m"]
                 for resolution_tag in resolution_tags:

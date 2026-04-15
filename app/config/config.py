@@ -37,21 +37,77 @@ PRODUCT_TYPE_FILE_IDS = {
     "WVP": {"": ["WVP"]},
 }
 
-SPECTRAL_INDICES_RESOLUTION = {
-    "evi": 10,
-    "evi2": 10,
-    "ndre": 20,  # TODO: update to 60 when MinIO NDRE obj are also updated to 60
-    "ndvi": 10,
-    "osavi": 10,
-    "ri": 10,
-    "ndwi": 10,
-    "gvmi": 20,
-    "mndwi": 20,
-    "ndsi": 20,
-    "ndyi": 10,
-    "bri": 20,
-    "cri1": 20,
-    "bsi": 20,
+SPECTRAL_INDICES_DATA = {
+    "bsi": {
+        "bands": ["B02", "B04", "B08", "B11"],
+        "resolution": 20,
+        "formula": "((s.B11 + s.B04) - (s.B08 + s.B02)) / ((s.B11 + s.B04) + (s.B08 + s.B02))"
+    },
+    "bri": {
+        "bands": ["B03", "B05", "B08"],
+        "resolution": 20,
+        "formula": "((1 / s.B03) - (1 / s.B05)) / s.B08"
+    },
+    "cri1": {
+        "bands": ["B03", "B02"],
+        "resolution": 20,
+        "formula": "(1 / s.B02) / (1 / s.B03)",
+    },
+    "evi": {
+        "bands": ["B02", "B04", "B08"],
+        "resolution": 10,
+        "formula": "(2.5 * (s.B08 - s.B04)) / ((s.B08 + 6 * s.B04 - 7.5 * s.B02) + 1)"
+    },
+    "evi2": {
+        "bands": ["B04", "B08"],
+        "resolution": 10,
+        "formula": "2.4 * ((s.B08 - s.B04) / (s.B08 + s.B04 + 1.0))"
+    },
+    "gvmi": {
+        "bands": ["B8A", "B11"],
+        "resolution": 20,
+        "formula": "(s.B8A - s.B11) / (s.B8A + s.B11)"
+    },
+    "mndwi": {
+        "bands": ["B03", "B11"],
+        "resolution": 20,
+        "formula": "(s.B03 - s.B11) / (s.B03 + s.B11)"
+    },
+    "ndsi": {
+        "bands": ["B03", "B11"],
+        "resolution": 20,
+        "formula": "((s.B03 - s.B11) / (s.B03 + s.B11) > 0.42) ? 1.0 : 0.0"
+    },
+    "ndre": {
+        "bands": ["B05", "B09"],
+        "resolution": 20,  # TODO: update to 60 when MinIO NDRE obj are also updated to 60
+        "formula": "(s.B09 - s.B05) / (s.B09 + s.B05)"
+    },
+    "ndvi": {
+        "bands": ["B04", "B08"],
+        "resolution": 10,
+        "formula": "(s.B08 - s.B04) / (s.B08 + s.B04)"
+    },
+    "ndwi": {
+        "bands": ["B03", "B08"],
+        "resolution": 10,
+        "formula": "(s.B03 - s.B08) / (s.B03 + s.B08)"
+    },
+    "ndyi": {
+        "bands": ["B03", "B02"],
+        "resolution": 10,
+        "formula": "(s.B03 - s.B02) / (s.B03 + s.B02)"
+    },
+    "osavi": {
+        "bands": ["B04", "B08"],
+        "resolution": 10,
+        "formula": "1.16 * (s.B08 - s.B04) / (s.B08 + s.B04 + 0.16)"
+    },
+    "ri": {
+        "bands": ["B03", "B04"],
+        "resolution": 10,
+        "formula": "(s.B04 - s.B03) / (s.B04 + s.B03)"
+    },
 }
 
 # --- JS INTERFACE SCRIPTS ---
@@ -159,19 +215,3 @@ PRODUCT_TYPE_INDEX = {
     "WVP": ["WVP"],
 }
 
-SPECTRAL_INDICES_BANDS = {
-    "bsi": ["B02", "B04", "B08", "B11"],
-    "bri": ["B03", "B05", "B08"],
-    "cri1": ["B03", "B02"],
-    "evi": ["B02", "B04", "B08"],
-    "evi2": ["B04", "B08"],
-    "gvmi": ["B8A", "B11"],
-    "mndwi": ["B03", "B11"],
-    "ndsi": ["B03", "B11"],
-    "ndre": ["B05", "B09"],
-    "ndvi": ["B04", "B08"],
-    "ndwi": ["B03", "B08"],
-    "ndyi": ["B03", "B02"],
-    "osavi": ["B04", "B08"],
-    "ri": ["B03", "B04"],
-}
