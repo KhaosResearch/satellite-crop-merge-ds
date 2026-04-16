@@ -111,7 +111,7 @@ def process_merge_crop(
         mosaic, out_meta = _merge_image_data_to_mosaic(datasets)
 
         # Crop logic
-        out_image, out_meta = _crop_mosaic(mosaic, out_meta, geometry)
+        out_image, out_meta = crop_mosaic(mosaic, out_meta, geometry)
 
         # Save logic
         saved_files = save_cropped_data(
@@ -200,7 +200,7 @@ def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tupl
         logger.error(str(ex))
         raise ex
 
-def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodataframe)->tuple:
+def crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodataframe)->tuple:
     """Crops the mosaic given the parcel's geometry.
     Args:
         mosaic (numpy.ndarray):
@@ -220,9 +220,16 @@ def _crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodatafra
         with MemoryFile() as memfile:
             with memfile.open(**meta) as dataset:
                 dataset.write(mosaic)
-
-                # Reproject geometry to raster CRS
-                geom_gdf = gpd.GeoDataFrame(geometry=[geometry_gdf], crs="EPSG:4326")
+                # Check if we were passed a GeoDataFrame, GeoSeries, or raw Shapely object
+                if isinstance(geometry_gdf, gpd.GeoDataFrame):
+                    geom_gdf = geometry_gdf
+                elif isinstance(geometry_gdf, gpd.GeoSeries):
+                    geom_gdf = gpd.GeoDataFrame(geometry=geometry_gdf, crs=geometry_gdf.crs)
+                else:
+                    # Raw Shapely object
+                    geom_gdf = gpd.GeoDataFrame(geometry=[geometry_gdf], crs="EPSG:4326")
+                
+                # Reproject geometry to the actual raster CRS (e.g., UTM)
                 geom_gdf = geom_gdf.to_crs(dataset.crs)
 
                 out_image, out_transform = mask(
