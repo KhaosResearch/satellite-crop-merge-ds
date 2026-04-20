@@ -24,7 +24,7 @@ PRODUCT_TYPE_FILE_IDS = {
     "images": {
         "10m": [ 'B02', 'B03', 'B04', 'B08'],
         "20m": [ 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B11', 'B12'],
-        "60m": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B11', 'B12']
+        "60m": [ 'B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B11', 'B12']
     },
     "BareSoil": {"": ["bsi"]},
     "Senescence": {"": ["bri", "cri1"]},
@@ -86,7 +86,7 @@ SPECTRAL_INDICES_DATA = {
     "ndvi": {
         "bands": ["B04", "B08"],
         "resolution": 10,
-        "formula": "(s.B08 - s.B04) / (s.B08 + s.B04)"
+        "formula": "((s.B08 + s.B04) == 0) ? 0: (s.B08 - s.B04) / (s.B08 + s.B04)"
     },
     "ndwi": {
         "bands": ["B03", "B08"],
@@ -108,6 +108,12 @@ SPECTRAL_INDICES_DATA = {
         "resolution": 10,
         "formula": "(s.B04 - s.B03) / (s.B04 + s.B03)"
     },
+    "tci": {
+        "bands": ["B02", "B03", "B04"],
+        "resolution": 10,
+        "formula": None
+    },
+
 }
 
 # --- JS INTERFACE SCRIPTS ---
@@ -201,17 +207,3 @@ SENTINELHUB_CONFIG.sh_base_url = 'https://sh.dataspace.copernicus.eu'
 SENTINELHUB_CONFIG.sh_token_url = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'
 
 SENTINELHUB_CONFIG.save(CONFIG_NAME)
-
-PRODUCT_TYPE_INDEX = {
-    "images": ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B11', 'B12'],
-    "BareSoil": ["bsi"],
-    "Senescence": ["bri", "cri1"],
-    "Vegetation": ["evi", "evi2", "ndre", "ndvi", "osavi", "ri"],
-    "WaterContent": ["ndsi", "mndwi"],
-    "WaterMass": ["ndwi", "gvmi"],
-    "Yellow": ["ndyi"],
-    "AOT": ["AOT"],
-    "TCI": ["TCI"],
-    "WVP": ["WVP"],
-}
-

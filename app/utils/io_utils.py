@@ -93,7 +93,7 @@ def save_cropped_data(
 
 def save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
     zip_path = os.path.join(job_dir, f"results_{product_key}.zip")
-    logger.info(f"Zipping {zip_path}...")
+    logger.info(f"Zipping files list...")
     with zipfile.ZipFile(zip_path, "w") as z:
         for file in saved_files:
             if file.endswith(".tif") or file.endswith(".tfw"):
@@ -105,6 +105,7 @@ def save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
             else:
                 continue
             z.write(file, arcname=filepath)
+    logger.info(f"Files successfully compressed as ZIP at: {zip_path}")
     return zip_path
 
 def create_job_dir(base_dir: Path, user: str) -> Path:

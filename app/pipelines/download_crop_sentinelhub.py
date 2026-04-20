@@ -15,7 +15,7 @@ from sentinelhub.data_collections import DataCollection
 from sentinelhub import BBox, CRS, SentinelHubRequest
 
 from utils.geospatial_utils import get_year_month_pair
-from utils.io_utils import save_cropped_data
+from utils.io_utils import save_cropped_data, save_to_zip
 from utils.merge_crop_utils import crop_mosaic
 from config.config import PRODUCT_TYPE_FILE_IDS, SPECTRAL_INDICES_DATA, SENTINELHUB_CONFIG
 
@@ -45,61 +45,66 @@ def download_crop_sentinelhub(
             The compressed ZIP filepath with all of the product data.
     """
     # Get product-specific bands and evalscript
-    subkey = "" if product_key != "images" else "60m"
-    spectral_indices = PRODUCT_TYPE_FILE_IDS.get(product_key, None).get(subkey, None)
+    saved_files = []
     if product_key in ["images", "AOT", "TCI", "WVP"]:
-        bands = spectral_indices
         dates = get_year_month_pair(start_date, end_date)
         logger.debug(dates)
         for res in [10, 20, 60]:
-            saved_files = _crop_monthly_timeseries(product_key, product_key, bands, res, geometry_gdf, start_date, end_date, job_dir)
-
+            subkey = f"{res}m" if product_key == "images" else ""
+            bands = PRODUCT_TYPE_FILE_IDS.get(product_key, None).get(subkey, None)
+            saved_files.extend(_crop_monthly_timeseries(product_key, product_key, bands, res, geometry_gdf, start_date, end_date, job_dir))
     else:
         # Retrieve bands for all spectral indices
+        subkey = ""
+        spectral_indices = PRODUCT_TYPE_FILE_IDS.get(product_key, None).get(subkey, None)
         for index in spectral_indices:
             bands, res = SPECTRAL_INDICES_DATA.get(index, None).get("bands", None), SPECTRAL_INDICES_DATA.get(index, None).get("resolution", None)
             if bands and res:
                 #  Get composed spectral indices
-                saved_files = _crop_monthly_timeseries(product_key, index, bands, res, geometry_gdf, start_date, end_date, job_dir)
+                saved_files.extend(_crop_monthly_timeseries(product_key, index, bands, res, geometry_gdf, start_date, end_date, job_dir))
 
-    # TODO: Save the data, return the ZIP file paths
+    # Save the data, return the ZIP file paths
+    saved_files = list(set(saved_files))
+    zip_path = save_to_zip(product_key, job_dir, saved_files)
+    return zip_path
 
-def _crop_monthly_timeseries(product_key, id, bands, res, geometry_gdf, total_start, total_end, job_dir):
+def _crop_monthly_timeseries(product_key, id, bands, res, geometry_gdf, total_start_date, total_end_date, job_dir):
     """Creates monthly composites using the `_get_sentinelhub_bands_data` and returns them in a dictionary.
     """
-    current_start = datetime.strptime(total_start, "%Y-%m-%d")
-    final_end = datetime.strptime(total_end, "%Y-%m-%d")
+    current_start = datetime.strptime(total_start_date, "%Y-%m-%d")
+    final_end = datetime.strptime(total_end_date, "%Y-%m-%d")
     
     saved_files = []
-    
-    dates = get_year_month_pair(start_date, end_date)
+    is_index_data = product_key not in ["images", "AOT", "WVP"]
+
+    dates = get_year_month_pair(total_start_date, total_end_date)
     index_date = 0
     while current_start < final_end:
         year_str, month_str = dates[index_date]
         # Calculate the end of the current month (excludes last date's month to avoid partial data)
         next_month = current_start + relativedelta(months=1)
         current_end = next_month if next_month < final_end else final_end
-        
         logger.info(f"Processing month: {current_start.strftime('%Y-%m')}")
         
         try:
-            # TODO: Account for images (N=4, N=9, N=11), AOT (N=3), TCI (N=3) & WVP (N=3) (those have bands, not spectral indices, hence data will include all N bands required)
             # Fetch the Monthly Composite
             data = _get_sentinelhub_bands_data(
                 id, bands, res, geometry_gdf, 
                 current_start.strftime("%Y-%m-%d"), 
-                current_end.strftime("%Y-%m-%d")
+                current_end.strftime("%Y-%m-%d"),
             )
             
             if data and len(data) > 0:
                 # Pre-process raw data array for indexes
-                raw_array = data[0]
-                # raw_array = data[0].astype(np.float32)  # Ensure format
+                raw_array = data[0].astype(np.float32)  # Ensure format
                 raw_array = np.moveaxis(raw_array, -1, 0)  # Switch dimensions (H, W, C) -> (C, H, W)
                 raw_array = np.nan_to_num(raw_array, nan=0.0, posinf=0.0, neginf=0.0)  # Normalize anomalous values
+
                 if id.lower() in SPECTRAL_INDICES_DATA.keys():  # Clip for spectral indices
                     logger.debug(f"Spectral index '{id.upper()}' detected. Clipping data (-1.0, 1.0)")
-                    raw_array[..., 0] = np.clip(raw_array[..., 0], -1.0, 1.0)
+                    low, high = (0.0, 1.0) if id.lower() == "tci" else (-1.0, 1.0)
+                    raw_array = np.clip(raw_array, low, high)
+
                 width, height = raw_array.shape[2], raw_array.shape[1]  # Get dimensions
 
                 # Get BBox and correct transform function
@@ -123,26 +128,49 @@ def _crop_monthly_timeseries(product_key, id, bands, res, geometry_gdf, total_st
                     "transform": bbox_transform,
                 }
 
-                # Crop data from geometry
+                # Crop stack data from geometry
                 cropped_data, cropped_meta = crop_mosaic(raw_array, meta, parcel_geometry)
 
                 # Build filepath to save cropped data
                 resolution_tag=f"{str(res)}m"
 
-                if product_key in ["images", "AOT", "TCI", "WVP"]:
+                if not is_index_data:
                     product_prefix = product_key 
-                    subfolder = f"R{resolution_tag}m"
+                    subfolder = f"R{resolution_tag}"
+                    for i, band_id in enumerate(bands):
+                        # Isolate a single band (H, W) but keep it 3D for the saver: (1, H, W)
+                        single_band_data = cropped_data[i:i+1, :, :]
+                        
+                        # Update meta for a single channel
+                        single_band_meta = cropped_meta.copy()
+                        single_band_meta.update({"count": 1})
+
+                        saved_files.extend(
+                            save_cropped_data(
+                                job_dir=job_dir, 
+                                product_key=product_key, 
+                                saved_files=saved_files, 
+                                product_prefix=product_prefix,
+                                subfolder=subfolder, 
+                                file_id=band_id,
+                                year=year_str, 
+                                month=month_str,
+                                resolution_tag=resolution_tag, 
+                                out_image=single_band_data, 
+                                out_meta=single_band_meta
+                            )
+                        )
                 else:
-                    product_prefix = os.path.join("indices", product_key)
+                    product_prefix = os.path.join("indices", product_key) if product_key != "TCI" else product_key
                     subfolder = ""
                 
-                # Generate path and save files
-                saved_files.extend(
-                    save_cropped_data(
-                        job_dir=job_dir, product_key=product_key, saved_files= saved_files, product_prefix=product_prefix,
-                        subfolder=subfolder, file_id=id, year=year_str, month=month_str,
-                        resolution_tag=resolution_tag, out_image=cropped_data, out_meta=cropped_meta)
-                    )
+                    # Generate path and save files
+                    saved_files.extend(
+                        save_cropped_data(
+                            job_dir=job_dir, product_key=product_key, saved_files= saved_files, product_prefix=product_prefix,
+                            subfolder=subfolder, file_id=id, year=year_str, month=month_str,
+                            resolution_tag=resolution_tag, out_image=cropped_data, out_meta=cropped_meta)
+                        )
 
         except Exception as e:
             logger.error(f"Failed to fetch data for {current_start.strftime('%Y-%m')}: {e}")
@@ -248,6 +276,7 @@ def generate_evalscript(
     bands: list[str] = None,
     index_id: str = None,
     mosaicking_type: Literal["SIMPLE", "ORBIT", "TILE"] = "ORBIT",
+    units: Literal["REFLECTANCE", "OPTICAL_DEPTH", "DN."] = "REFLECTANCE",
     sample_type: Literal["INT8", "UINT8", "INT16", "UINT16", "FLOAT32", "AUTO"] = "FLOAT32",
     mask: bool = True
 )->str:
@@ -262,9 +291,11 @@ def generate_evalscript(
         index_id (str | None):
             The spectral index ID. If it's not an spectral index ID, the `bands` arg is used to acquire the band data.
         mosaicking_type (str | None):
-            Type of mosaicking. If None, omitted.
+            Type of mosaicking. Default is `"ORBIT"`.
+        units (str | None):
+            Units of the input bands or index. Default is `"REFLECTANCE"`.
         sample_type (str | None):
-            Bit scale of output bands. If None, `"AUTO"`.
+            Bit scale of output bands. If None, `"FLOAT32"`.
         mask (bool):
             Whether to output mask. If None, omitted.
     Returns:
@@ -276,12 +307,13 @@ def generate_evalscript(
         cfg = SPECTRAL_INDICES_DATA[index_id.lower()]
         formula_template = cfg["formula"]
         req_bands = cfg["bands"]
-        is_rgb = (index_id.lower() == "rgb")
+        is_rgb = (index_id.lower() == "tci")
     else:
         formula_template = None
         req_bands = bands if bands else []
         is_rgb = False
-    
+        units = "DN" if index_id == "AOT" else units
+        print("id, units", index_id, units)
     # Sync Input Bands
     input_bands = list(dict.fromkeys(req_bands + (["dataMask"] if mask else [])))
     bands_str = ", ".join([f'"{b}"' for b in input_bands])
@@ -292,7 +324,23 @@ def generate_evalscript(
         base_channels = len(req_bands)
     
     out_channels = base_channels + (1 if mask else 0)
+    
+    sig, body = _generate_evaluatepixel_function(mosaicking_type, formula_template, is_rgb, out_channels, mask, req_bands)
 
+    return f"""//VERSION=3
+function setup() {{
+  return {{
+    input: [{{ bands: [{bands_str}], units: "{units}" }}],
+    output: {{ bands: {out_channels}, sampleType: "{sample_type}" }},
+    mosaicking: "{mosaicking_type}"
+  }};
+}}
+
+function evaluatePixel({sig}) {{
+  {body}
+}}"""
+
+def _generate_evaluatepixel_function(mosaicking_type, formula_template, is_rgb, out_channels, mask, req_bands):
     # Handle Mosaicking / Signature
     is_temporal = mosaicking_type in ["ORBIT", "TILE"]
     sig = "samples" if is_temporal else "sample"
@@ -311,7 +359,7 @@ def generate_evalscript(
         else:
             pixel_val = f"var val = {calc_expr}; var res = isFinite(val) ? val : 0;"
 
-    # 6. Construct the Return Logic
+    # Construct the Return Logic
     if is_temporal:
         if formula_template:
             # Index Calculation Path
@@ -341,38 +389,20 @@ def generate_evalscript(
         else:
             band_vals = ", ".join([f"sample.{b}" for b in req_bands])
             body = f"return [{band_vals}{f', sample.dataMask' if mask else ''}];"
+    return sig, body
 
-    return f"""//VERSION=3
-function setup() {{
-  return {{
-    input: [{{ bands: [{bands_str}], units: "REFLECTANCE" }}],
-    output: {{ bands: {out_channels}, sampleType: "{sample_type}" }},
-    mosaicking: "{mosaicking_type}"
-  }};
-}}
-
-function evaluatePixel({sig}) {{
-  {body}
-}}"""
-
-if __name__ is "__main__":
+if __name__ == "__main__":
     init = datetime.now()
     print()
-    logger.info(f"--- STARTING SENTINELHUB PIPELINE ---\n\n")
+    logger.info(f"--- STARTING SENTINELHUB PIPELINE ---\n")
 
-    bands = ["B02", "B03", "B04", "B08"]
-    bands = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06','B07', 'B8A', 'B09', 'B11', 'B12']
-    res = 10
     geometry_gdf = gpd.read_file("../misc/geometry.geojson")
     start_date ="2025-03-01"
     end_date ="2025-03-31"
-
+    product_key = "images"
     job_dir = "/home/miguel/Dev/satellite-crop-merge-ds/app/results/123/88d46fa7"
-    product_key = "Vegetation"
-    for index in PRODUCT_TYPE_FILE_IDS.get(product_key).get(""):
-        logger.debug(f"Now getting {index.upper()} index.")
-        bands, res = SPECTRAL_INDICES_DATA.get(index, None).get("bands", None), SPECTRAL_INDICES_DATA.get(index, None).get("resolution", None)
 
-        saved_files = _crop_monthly_timeseries(product_key, index, bands, res, geometry_gdf, start_date, end_date, job_dir)
+    zip_path = download_crop_sentinelhub(geometry_gdf, start_date, end_date, product_key, job_dir)
+
     print()
-    logger.info(f"--- TRANSFERENCE TIME DOWNLOADING FOR {product_key.upper()} FROM {start_date} TO {end_date} AT {res}M/PX: {datetime.now() - init} ---\n")
+    logger.info(f"--- TRANSFERENCE TIME DOWNLOADING FOR {product_key.upper()} FROM {start_date} TO {end_date}: {datetime.now() - init} ---\n")
