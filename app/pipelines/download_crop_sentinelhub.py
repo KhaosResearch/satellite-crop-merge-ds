@@ -1,6 +1,5 @@
 import math
 import os
-from typing import Literal
 from affine import Affine
 import structlog
 
@@ -8,16 +7,16 @@ import geopandas as gpd
 import numpy as np
 
 from datetime import datetime
+from sentinelhub import BBox, CRS, SentinelHubRequest
 from dateutil.relativedelta import relativedelta
 from sentinelhub.constants import MimeType
 from sentinelhub.data_collections import DataCollection
 
-from sentinelhub import BBox, CRS, SentinelHubRequest
-
+from config.config import PRODUCT_TYPE_FILE_IDS, SPECTRAL_INDICES_DATA, SENTINELHUB_CONFIG
 from utils.geospatial_utils import get_year_month_pair
 from utils.io_utils import save_cropped_data, save_to_zip
 from utils.merge_crop_utils import crop_mosaic
-from config.config import PRODUCT_TYPE_FILE_IDS, SPECTRAL_INDICES_DATA, SENTINELHUB_CONFIG
+from utils.sentinelhub_utils import generate_evalscript
 
 logger = structlog.get_logger()
 
@@ -68,8 +67,35 @@ def download_crop_sentinelhub(
     zip_path = save_to_zip(product_key, job_dir, saved_files)
     return zip_path
 
-def _crop_monthly_timeseries(product_key, id, bands, res, geometry_gdf, total_start_date, total_end_date, job_dir):
-    """Creates monthly composites using the `_get_sentinelhub_bands_data` and returns them in a dictionary.
+def _crop_monthly_timeseries(
+        product_key: str,
+        id:str,
+        bands: list[str],
+        res: int,
+        geometry_gdf: gpd.GeoDataFrame,
+        total_start_date: str,
+        total_end_date: str,
+        job_dir: str
+        )->list[str]:
+    """Creates and crops monthly composites of the specified product over the given geometry and returns an organize list of filepaths to compress.
+    Args:
+        product_key (str):
+            The ID of the product.
+        id (str):
+            The spectral index ID or product key (it depends on whether product was index-related or not respectively).
+        res (int):
+            Band resolution in m/px.
+        geometry_gdf (gpd.GeoDataFrame):
+            The parcel's geometry.
+        total_start_date (str):
+            The starting date in ISO format (`YYYY-MM-DD`).
+        total_end_date (str):
+            The finishing date in ISO format (`YYYY-MM-DD`).
+        job_dir (str):
+            The Job directory where the cropped files will be saved before being compressed in a ZIP file.
+    Returns:
+        saved_files (list[str]):
+            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
     """
     current_start = datetime.strptime(total_start_date, "%Y-%m-%d")
     final_end = datetime.strptime(total_end_date, "%Y-%m-%d")
@@ -210,10 +236,10 @@ def _get_sentinelhub_bands_data(
         data (list):
             Returns `data = [array(... shape=(width_px, height_px, total_num_bands), dtype=uint8)]`.
             Band data is presented in the same order as in the `bands` arg. To access a specific band, use `band_data = data[0][:, :, band_index]`
-
     """
     # Get request parameters
     evalscript, bbox, width_px, height_px = _get_sentinelhub_request_params(id, bands, res, geometry_gdf)
+
     if width_px > 2500 or height_px > 2500:
         logger.warning("WARNING: Image size cannot be greater than 2500px on any dimension for current Sentinehl Hub request. Try the SH implementation for large images if you must.")
         width_px = min(width_px, 2500)
@@ -249,6 +275,20 @@ def _get_sentinelhub_request_params(
         res: int,
         geometry_gdf: gpd.GeoDataFrame,
     )->tuple:
+    """Get all SentinelHubRequest necessary parameters for satellite data download.
+    Args:
+        id (str):
+            Product key or spectral index ID.
+        bands (list[str]):
+            Band identifiers list (i.e `["B02", "B03", "B04", "B08"]`).
+        res (int):
+            Band resolution in m/px.
+        geometry_gdf (gpd.GeoDataFrame):
+            Geometry GeoDataFrame of the parcel.
+    Returns:
+        evalscript,bbox,width_px,height_px (tuple):
+            A tuple with the `evalscript` (str), the geometry's `bbox` (BBox) and the `width_px` (int) and `height_px` (int).
+    """
     # Get EvalScript
     evalscript = generate_evalscript(bands, index_id=id)
 
@@ -270,126 +310,6 @@ def _get_sentinelhub_request_params(
     logger.debug(f"Geometry Size at {res}m/px: {width_px}x{height_px} px")
 
     return evalscript, bbox, width_px, height_px
-
-# --- UTILS ---
-def generate_evalscript(
-    bands: list[str] = None,
-    index_id: str = None,
-    mosaicking_type: Literal["SIMPLE", "ORBIT", "TILE"] = "ORBIT",
-    units: Literal["REFLECTANCE", "OPTICAL_DEPTH", "DN."] = "REFLECTANCE",
-    sample_type: Literal["INT8", "UINT8", "INT16", "UINT16", "FLOAT32", "AUTO"] = "FLOAT32",
-    mask: bool = True
-)->str:
-    """
-    Generate an evalscript for SentinelHub requests. The script is dinamically generated with the values provided.
-
-    DOC: https://docs.sentinel-hub.com/api/latest/evalscript/v3/
-
-    Arguments:
-        bands (list | str | None): 
-            Bands to include, e.g. `"B02"` or `["B02", "B03", "B04"]`.
-        index_id (str | None):
-            The spectral index ID. If it's not an spectral index ID, the `bands` arg is used to acquire the band data.
-        mosaicking_type (str | None):
-            Type of mosaicking. Default is `"ORBIT"`.
-        units (str | None):
-            Units of the input bands or index. Default is `"REFLECTANCE"`.
-        sample_type (str | None):
-            Bit scale of output bands. If None, `"FLOAT32"`.
-        mask (bool):
-            Whether to output mask. If None, omitted.
-    Returns:
-        evalscript (str): The generated evalscript for SentinelHub image request.
-    """
-
-    # Determine Logic Path: Raw Bands vs Spectral index composition
-    if index_id and index_id.lower() in SPECTRAL_INDICES_DATA:
-        cfg = SPECTRAL_INDICES_DATA[index_id.lower()]
-        formula_template = cfg["formula"]
-        req_bands = cfg["bands"]
-        is_rgb = (index_id.lower() == "tci")
-    else:
-        formula_template = None
-        req_bands = bands if bands else []
-        is_rgb = False
-        units = "DN" if index_id == "AOT" else units
-        print("id, units", index_id, units)
-    # Sync Input Bands
-    input_bands = list(dict.fromkeys(req_bands + (["dataMask"] if mask else [])))
-    bands_str = ", ".join([f'"{b}"' for b in input_bands])
-    
-    # sE Output Configuration
-    base_channels = 3 if is_rgb else 1
-    if not formula_template:
-        base_channels = len(req_bands)
-    
-    out_channels = base_channels + (1 if mask else 0)
-    
-    sig, body = _generate_evaluatepixel_function(mosaicking_type, formula_template, is_rgb, out_channels, mask, req_bands)
-
-    return f"""//VERSION=3
-function setup() {{
-  return {{
-    input: [{{ bands: [{bands_str}], units: "{units}" }}],
-    output: {{ bands: {out_channels}, sampleType: "{sample_type}" }},
-    mosaicking: "{mosaicking_type}"
-  }};
-}}
-
-function evaluatePixel({sig}) {{
-  {body}
-}}"""
-
-def _generate_evaluatepixel_function(mosaicking_type, formula_template, is_rgb, out_channels, mask, req_bands):
-    # Handle Mosaicking / Signature
-    is_temporal = mosaicking_type in ["ORBIT", "TILE"]
-    sig = "samples" if is_temporal else "sample"
-    s_pref = "samples[i]." if is_temporal else "sample."
-
-    # Build evaluatePixel Body with Stability Guard
-    if formula_template:
-        # We wrap the formula in a JS helper to prevent Infinity/NaN
-        calc_expr = formula_template.replace("s.", s_pref)
-        
-        # If the result is not finite, return 0. 
-        
-        if is_rgb:
-            # RGB logic usually returns 3 channels; assuming calc_expr returns array
-            pixel_val = f"var val = {calc_expr}; return isFinite(val[0]) ? [...val"
-        else:
-            pixel_val = f"var val = {calc_expr}; var res = isFinite(val) ? val : 0;"
-
-    # Construct the Return Logic
-    if is_temporal:
-        if formula_template:
-            # Index Calculation Path
-            body = f"""
-    for (var i = 0; i < samples.length; i++) {{
-        if (samples[i].dataMask === 1) {{
-            {pixel_val}
-            return [res{f', samples[i].dataMask' if mask else ''}];
-        }}
-    }}
-    return new Array({out_channels}).fill(0);"""
-        else:
-            # Raw Bands Path
-            band_vals = ", ".join([f"samples[i].{b}" for b in req_bands])
-            pixel_val = f"[{band_vals}{f', samples[i].dataMask' if mask else ''}]"
-            body = f"""
-    for (var i = 0; i < samples.length; i++) {{
-        if (samples[i].dataMask === 1) {{
-            return {pixel_val};
-        }}
-    }}
-    return new Array({out_channels}).fill(0);"""
-    else:
-        # Simple Mosaicking
-        if formula_template:
-            body = f"{pixel_val} return [res{f', sample.dataMask' if mask else ''}];"
-        else:
-            band_vals = ", ".join([f"sample.{b}" for b in req_bands])
-            body = f"return [{band_vals}{f', sample.dataMask' if mask else ''}];"
-    return sig, body
 
 if __name__ == "__main__":
     init = datetime.now()
