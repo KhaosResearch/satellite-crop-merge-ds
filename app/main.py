@@ -14,9 +14,9 @@ from fastapi.security import APIKeyQuery
 from pathlib import Path
 from sqlmodel import Session
 
+from utils.io_utils import run_cleanup_pass, cleanup_old_jobs
 from config.config import HIDE_MAP_TEXTBOX_CSS, JS_RECIEVER, RESULTS_FULL_PATH
 from config.database import User, create_db_and_tables, engine, select
-from utils.download_merge_crop import run_cleanup_pass, cleanup_old_jobs
 from interface import interface
 from schema import schema
 
@@ -121,7 +121,7 @@ app = gr.mount_gradio_app(
     interface,
     path="",
     auth=authenticate_user,
-    theme="soft",
+    theme="gradio/monochrome",
     head=JS_RECIEVER,
     css=HIDE_MAP_TEXTBOX_CSS
 )

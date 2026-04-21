@@ -62,7 +62,7 @@ def save_cropped_data(
             List of saved files associated to the product.
 """
     try:
-        year_month = f"{year}{month.split("-")[0]}"
+        year_month = f'{year}{month.split("-")[0]}'
         output_dir = os.path.join(job_dir, product_prefix, year, month, subfolder)
         
         # Generate results dir and filepath
@@ -70,9 +70,9 @@ def save_cropped_data(
         if product_key not in PRODUCT_TYPE_FILE_IDS.keys():
             tiles_tag = resolution_tag  # Used store the tiles str for ASTER products
             crop_tag = "crop" if not "-" in tiles_tag else "merge-crop"  # Multiple tiles = merge + crop, Single tile = only crop
-            output_filename = f"{"_".join(["ASTGTMV003", product_key, tiles_tag, crop_tag])}.tif"
+            output_filename = f'{"_".join(["ASTGTMV003", product_key, tiles_tag, crop_tag])}.tif'
         else:
-            output_filename = f"{"_".join([product_key, year_month, "comp", resolution_tag, file_id])}.tif"
+            output_filename = f'{"_".join([product_key, year_month, "comp", resolution_tag, file_id])}.tif'
         output_path = os.path.join(output_dir, output_filename)
                         
         logger.debug(f"Saving cropped image data to local as:\n\t\t\t\t   {output_path}")
@@ -93,7 +93,7 @@ def save_cropped_data(
 
 def save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
     zip_path = os.path.join(job_dir, f"results_{product_key}.zip")
-    logger.info(f"Zipping {zip_path}...")
+    logger.info(f"Zipping files list...")
     with zipfile.ZipFile(zip_path, "w") as z:
         for file in saved_files:
             if file.endswith(".tif") or file.endswith(".tfw"):
@@ -105,6 +105,7 @@ def save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
             else:
                 continue
             z.write(file, arcname=filepath)
+    logger.info(f"Files successfully compressed as ZIP at: {zip_path}")
     return zip_path
 
 def create_job_dir(base_dir: Path, user: str) -> Path:
@@ -116,7 +117,7 @@ def create_job_dir(base_dir: Path, user: str) -> Path:
 def cleanup_old_jobs(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
     while True:
         try:
-            _run_cleanup_pass(base_dir, max_age_hours)
+            run_cleanup_pass(base_dir, max_age_hours)
         except Exception as e:
             logger.error(f"Cleanup error: {e}")
 
@@ -145,13 +146,12 @@ def _save_readme(
             List of saved files associated to the product.
     """
     minio_path = os.path.join(product_prefix, f"README_{product_key}_v2.pdf")
-    output_path = os.path.join(job_dir, minio_path)
     readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client, minio_bucket)
     
     if not readme_exists_in_minio:
-        output_path = output_path.replace("_v2", "")  # Try OG README if the v2 does not exist
+        minio_path = minio_path.replace("_v2", "")  # Try OG README if the v2 does not exist
         readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client, minio_bucket)
-    
+        
     try:
         if readme_exists_in_minio:
             logger.debug(f"Downloading README file for {product_key.upper()}")
@@ -159,6 +159,7 @@ def _save_readme(
             response = minio_client.get_object(minio_bucket, minio_path)
             
             # Save to local file
+            output_path = os.path.join(job_dir, minio_path)
             with open(output_path, "wb") as file_data:
                 for chunk in response.stream(32 * 1024):
                     file_data.write(chunk)
@@ -192,7 +193,7 @@ def _file_exists_in_minio(minio_path, minio_client: Minio=SOURCE_CLIENT, bucket_
         file_exists = False
     return file_exists
 
-def _run_cleanup_pass(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
+def run_cleanup_pass(base_dir: Path=Path(RESULTS_FULL_PATH), max_age_hours=2):
     """Deletes job directories older than `max_age_hours` hours.
     Args:
         base_dir (Path): The base directory where job directories are stored.

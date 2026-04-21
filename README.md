@@ -3,8 +3,12 @@ This respository hosts an application to retrieve satellite data based on the pr
 
 ## 🛠️Features:
 - **🔒 Authentication:** Secured login functionality using database credential generation and storage.
+- **📡 Multiple sourcing:** Choose between curated data from KHAOS' MinIO database or use Earth obaservation data directly from the Sentinel Hub API. Check [Table 1](#table-1-source-comparison) for further distinctions.
 - **✅ Product Accessibility:** Select and access satellite image and spectral indices data over a temporal range.
-- **📋 Parcel specific cropping:** Data is applied over the specified parcel geometry, which can be provided in a number of alternatives (GeoJSON file upload, SIGPAC cadastral reference or map polygon delimitation).
+- **📋 Parcel specific cropping:** Data is applied over the specified parcel geometry, which can be provided in a number of alternatives:
+  - **📂 GeoJSON file upload:** Use your parcel's geometry file to cut out the data.
+  - **🔗 SIGPAC cadastral reference _(Spain only)_:** Input the parcel's limits directly from the SIGPAC database using a valid reference.
+  - **🗺️ Map polygon delimitation:** Use the map interface to manually draw your area of interest.
 - **📊 Data handling:** Data is available for local download as a compressed file, along with all necessary documentation to use.
 
 ## 📦Requisites:
@@ -53,4 +57,11 @@ You can easily deploy the project using `uvicorn` and indicating both `host` and
 cd app
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+## Annex:
+### Table 1: Source comparison
+| Source | ✔️Pros | ❌Cons |
+| --- | --- | --- |
+| **KHAOS' MinIO** | · Fast unlimited access.<br>· Topography related products. | · Only avaliable for the Andalusia, Spain region.<br>· Current temporal range limited to Apr. 2017 - Dec. 2025. |
+| **Sentinel Hub API** | · All regions in the world available.<br>· Updated spectral data. | · Risk of incurring in API's rate limits. |
 
