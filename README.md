@@ -17,17 +17,30 @@ This respository hosts an application to retrieve satellite data based on the pr
 - 🔢 All `.env` variables with the following content:
 ```bash
 # MinIO Root Credentials
+API_KEY = "Cr0p4ndM3rg3S3rv1c3"
+
+# MinIO Root Credentials
 MINIO_HOST="minio-host"
 MINIO_PORT="minio-port"
 MINIO_ACCESS_KEY="minio-access-key"
 MINIO_SECRET_KEY="minio-secret-key"
 MINIO_BUCKET_NAME="minio-bucket-name"
 
+ASDATA_MINIO_ACCESS_KEY="asdata-minio-access-key"
+ASDATA_MINIO_SECRET_KEY="asdata-minio-secret-key"
+ASDATA_MINIO_BUCKET_NAME="asdata-minio-bucket-name"
+
 SENTINEL2_GRIDS_FILE="path-to-sentinel2-grids-file"
-SENTINEL2_API_KEY="your-sentinel2-api.key"
+
+COPERNICUS_CLIENT_ID = "copernicus-client-id"
+COPERNICUS_CLIENT_SECRET = "copernicus-client-secret"
+COPERNICUS_CONFIG_NAME = "copernicus-config-name"
+
 ```
->[!NOTE]
+>[!NOTE] About the `.env` vars
 >The `SENTINEL2_GRIDS_FILE` variable is a `kml` file to identify which tiles contain the geometry to retrieve. A GeoJSON version was generated [here](https://github.com/ubukawa/sentinel-2-grid).
+>
+>Copernicus credentials (`COPERNICUS_CLIENT_ID`, `COPERNICUS_CLIENT_SECRET`, `COPERNICUS_CONFIG_NAME`) are associated to any Copernicus account. They are free to create and rate limits are generous enough.
 
 ## 🚀Quickstart (development):
 In order to setup the app for development, do the following:
