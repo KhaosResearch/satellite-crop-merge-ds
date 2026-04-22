@@ -1,13 +1,11 @@
 index,es,en
-title,"# Servicio de Fusión y Recorte Satelital","# Satellite Crop and Merge Downloader"
-subtitle,"### Seleccione su producto, el rango temporal y su área de interés","### Select the product, temporal range and area of interes"
+title,"# Servicio de Fusión y Recorte Satelital","# Satellite Merge and Crop Downloader"
+subtitle,"### Seleccione su producto, el rango temporal y su área de interés.","### Select the product, temporal range and area of interest."
 lbl_lang,Seleccionar Idioma,Select Language
-lbl_src,Seleccione Fuente de Datos,Select Data Source
-lbl_prod_sen,Seleccionar Producto Sentinel,Select Sentinel Product
-lbl_prod_ast,Seleccionar Producto ASTER,Select ASTER Product
+lbl_prod_sel,Seleccionar Producto del catálogo,Select Catalogue Product
 lbl_start,Fecha Inicial,Start Date
 lbl_end,Fecha Final,End Date
-lbl_geom,Método de Entrada de Geometría,Geometry Input Method
+lbl_geom,Seleccione Área De Interés,Select Area Of Interest
 lbl_file,Subir Archivo GeoJSON,Upload GeoJSON File
 lbl_sigpac,Referencia Catastral SIGPAC,SIGPAC Cadastral Reference
 btn_run,Obtener Datos,Get Data
@@ -17,13 +15,12 @@ lbl_zip,Descargar Resultado ZIP,Download Result ZIP
 msg_start,Iniciando descarga y procesamiento...,"Starting download and processing..."
 msg_success,¡Éxito! El archivo ZIP está listo.,"Success! ZIP file is ready."
 msg_map_sync,Obteniendo área de interés capturada del mapa...,"Acquiring area of Interest captured from map..."
+msg_src_sel, Fuente de datos asignada:, Assigned data source:
 msg_error_geom,Error: No se detectó ninguna geometría.,"Error: No geometry detected."
 err_prefix,Error de Entrada:,Input Error:
 err_lang,El idioma debe ser 'en' o 'es'. Detectado: ,Language must be 'en' or 'es'. Got: 
 err_src_sel,"La fuente de datos debe ser 'minio' o 'sentinel'. Detectado: ","Data source must be 'minio' or 'sentinel'. Got: "
-err_src_ast,"Se escogió un producto ASTER pero la fuente de datos es 'sentinel'. Para productos ASTER, la fuente de datos debe ser 'minio'. Detectado: ","An ASTER product was selected but the data source is 'sentinel'. For ASTER products, the data source must be 'minio'. Got: "
-err_prod_sen,"El producto debe ser alguno de los siguientes: 'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow'. Detectado: ","Product must be one of the following:'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow'. Got: "
-err_prod_ast,"El producto debe ser alguno de los siguientes: 'aspect', 'elevation', 'slope'. Detectado: ","Product must be one of the following:'aspect', 'elevation', 'slope'. Got: "
+err_prod_sel,"El producto debe ser alguno de los siguientes: 'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow', 'aspect', 'elevation', 'slope'. Detectado: ","Product must be one of the following:'AOT', 'BareSoil', 'images', 'Senescence', 'TCI', 'Vegetation', 'WaterContent', 'WaterMass', 'WVP', 'Yellow'. Got: "
 err_end_date_gt,La fecha inicial no puede ser mayor que la fecha final.,Start date cannot be greater than end date.
 err_date_gt_today,La fecha no puede ser mayor que hoy.,Dates cannot be greater than today.
 err_date_format,Formato de fecha inválido.,Invalid date format.

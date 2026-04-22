@@ -22,6 +22,7 @@ def get_product_for_parcel(
         start_date: str,
         end_date: str,
         user: str,
+        geometry_origin:str=None
     ) -> str:
     """Retrieve the specified product type for the given geometry and temporal range as a compressed ZIP file.
     Args:
@@ -37,6 +38,8 @@ def get_product_for_parcel(
             The finishing date in ISO format (`YYYY-MM-DD`).
         user (str):
             Username. For data isolation.
+        geometry_origin (str):
+            Used for ASTER TIF file name. Default is `None`.
     Returns:
         zip_path (str):
             The compressed ZIP filepath with all of the product data.
@@ -52,7 +55,7 @@ def get_product_for_parcel(
         if product_key in ["aspect", "elevation", "slope"]:
             minio_client = ASDATA_CLIENT
             minio_bucket = ASDATA_BUCKET
-            tiles = get_aster_tiles_from_geometry(geometry_gdf)
+            tiles = get_aster_tiles_from_geometry(geometry_gdf, geometry_origin)
         elif product_key not in PRODUCT_TYPE_FILE_IDS.keys():
             ve = ValueError(f"Error: Product key must be one of the following: {str(PRODUCT_TYPE_FILE_IDS.keys()).replace("[","").replace("[","")}. Product key was: {product_key}")
             logger.error(ve)
