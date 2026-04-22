@@ -10,6 +10,41 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR_NAME = "results"
 RESULTS_FULL_PATH = ROOT_DIR / RESULTS_DIR_NAME
 
+ANDALUSIA_GEOJSON_FILEPATH = ROOT_DIR / "assets" / "andalucia.geojson"
+PRODUCTS_DICT = {
+    "en":{
+        "Atmospheric Aerosols": "AOT",
+        "Satellite Imagery": "images",
+        "True Color Image": "TCI",
+        "Atmospheric Humidity": "WVP",
+        "Bare Soil": "BareSoil",
+        "Vegetation Senescence": "Senescence ",
+        "Vegetation Productivity": "Vegetation",
+        "Vegetation Water Content": "WaterContent",
+        "Water Masses": "WaterMass",
+        "VegetationYellowing": "Yellow",
+        "Terrain Orientation": "aspect",
+        "Terrain Elevation": "elevation",
+        "Terrain Slope": "slope",
+    },
+    "es": {
+        "Aerosoles Atmosféricos": "AOT",
+        "Imágenes de Satélite": "images",
+        "Imágenes a Color": "TCI",
+        "Humedad Atmosférica": "WVP",
+        "Suelo Desnudo": "BareSoil",
+        "Senescencia Vegetal": "Senescence ",
+        "Productividad Vegetal": "Vegetation",
+        "Contenido hídrico en plantas": "WaterContent",
+        "Masas de aguas": "WaterMass",
+        "Amarillamiento Vegetal": "Yellow",
+        "Orientaciones del Terreno": "aspect",
+        "Topografía del Terreno": "elevation",
+        "Pendientes del Terreno": "slope",
+    }
+}
+PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow", "aspect", "elevation", "slope"],
+
 # --- MINIO CREDENTIALS ---
 SOURCE_BUCKET = os.environ.get('MINIO_BUCKET_NAME')
 SOURCE_CLIENT = get_src_minio_client()
