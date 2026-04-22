@@ -71,7 +71,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
                 )
                 
     get_data_btn = gr.Button(get_text(lang, "btn_run"), variant="primary")
-    with gr.Row(equal_height=True):
+    with gr.Row(equal_height=True, height=280):
         optional_geojson_file = gr.File(label=get_text(lang, "lbl_opt_geo"))
         with gr.Column(scale=3):
             output_zip_file = gr.File(label=get_text(lang, "lbl_zip"))

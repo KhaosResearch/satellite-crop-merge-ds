@@ -1,6 +1,6 @@
 index,es,en
-title,"# Servicio de Fusión y Recorte Satelital","# Satellite Crop and Merge Downloader"
-subtitle,"### Seleccione su producto, el rango temporal y su área de interés","### Select the product, temporal range and area of interes"
+title,"# Servicio de Fusión y Recorte Satelital","# Satellite Merge and Crop Downloader"
+subtitle,"### Seleccione su producto, el rango temporal y su área de interés.","### Select the product, temporal range and area of interest."
 lbl_lang,Seleccionar Idioma,Select Language
 lbl_prod_sel,Seleccionar Producto del catálogo,Select Catalogue Product
 lbl_start,Fecha Inicial,Start Date

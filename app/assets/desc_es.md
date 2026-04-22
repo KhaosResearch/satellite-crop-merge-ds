@@ -1,16 +1,11 @@
 Para poder tener acceso a los mapas ofertados en el catálogo del EDAAn, se ha creado el servicio de Descarga de Datos Geoespaciales. A través de la interfaz, el usuario puede obtener el resultado de la siguiente forma:
 
-1. **Seleccione la fuente de datos:**
-   - **`minio`:** **Para el área de Andalucía.** Es una base de datos que contiene los productos espectrales de Sentinel y los productos topográficos ASTER de la región. 
-   - **`sentinel`:** **Para el resto del mundo.** Depende de la API Sentinel Hub. Sólo dispone de productos espectrales. Más información [en este enlace](https://docs.sentinel-hub.com/api/latest/). 
-2. **Seleccione el producto que desea:** Más adelante encontrará tablas de correspondencia de la clave del producto con su entrada en el catálogo.
-3. **Especifique el rango temporal a cubrir (sólo productos Sentinel):** 
-   - **`minio`:** El rango temporal puede cubrir desde **Abril 2017 a Diciembre 2025 inclusive.**
-   - **`sentinel`:** Límites ampliados considerablemente, los mismos que Copernicus. Se recomienda consultar la documentación específica.
-4. **Introduzca la geometría de la parcela:** Esto permitirá recortar la parcela sobre los datos disponibles y devolver resultados que se apliquen sobre ese área de interés.
-   - **`GeoJSON Upload`:** Use la geometría de su parcela para recortar los datos.
-   - **`SIGPAC Cadastral` _(Sólo España)_:** Introduzca los límites de la parcela directamente de la base de datos de SIGPAC usando una referencia válida.
-   - **`Draw on Map`:** Utilice la interfaz del mapa para dibujar manualmente si área de interés.
+1. **Seleccione el producto que desea:** Más adelante encontrará tablas de correspondencia de la clave del producto con su entrada en el catálogo.
+2. **Especifique el rango temporal a cubrir:** Para productos espectrales, indique el rango temporal. Para productos topográficos no es necesario.
+3. **Introduzca el área de interés para el análisis:** Esto permitirá recortar la parcela sobre los datos disponibles y devolver resultados que se apliquen sobre ese área de interés.
+   - **`GeoJSON`:** Use un archivo con la geometría de su parcela para recortar los datos.
+   - **`SIGPAC` _(Sólo España)_:** Introduzca los límites de la parcela usando una referencia catastral directamente de la base de datos de SIGPAC.
+   - **`Map`:** Utilice la interfaz del mapa para dibujar manualmente si área de interés.
 
 >**Tenga en cuenta que los rangos temporales amplios tomarán su tiempo de procesar, especialmente para productos con muchos archivos asociados (`images` o `Vegetation`).**
 
@@ -45,6 +40,18 @@ Para poder tener acceso a los mapas ofertados en el catálogo del EDAAn, se ha c
 | **Mapa topográfico de Andalucía** | `elevation` | Mapa digital de elevaciones de la región de Andalucia en formato imagen, a 25 m de resolución de píxel. Descargable en recortes de parcela adaptados, en formato TIF. Rango de valores de 0 a 4000 m, en metros. |
 | **Mapa de pendientes topográficas de Andalucía** | `slope` | Mapa digital de pendientes del suelo de la región de Andalucía en formato imagen, a 25 m de resolución de píxel. Descargable en recortes de parcela adaptados, en formato TIF. Rango de valores de 0 a 90, en grados de inclinación, siendo 0 la horizontal y 90 la vertical. |
 
+</details>
+
+>
+
+<details><summary style="cursor: pointer;">Sobre las limitaciones de las fuentes de datos disponibles.</summary>
+
+| Fuente | ✔️Ventajas | ❌Límitaciones |
+| --- | --- | --- |
+| **Base de datos KHAOS MinIO** | · Acceso rápido e ilimitado.<br>· Incluye productos topográficos. | · Sólo disponible para la región de Andalcía, España.<br>· Rango temporal actual limitado a Abr. 2017 - Dic. 2025 inclusive. |
+| **Sentinel Hub API** | · Todas las regiones del mundo disponibles.<br>· Datos espectrales actualizados. | · Riesgo de incurrir en los límites de llamadas a la API. |
+
+> Documentación de Sentienl Hub API [en este enlace](https://docssentinel-hub.com/api/latest/). 
 </details>
 
 ---
