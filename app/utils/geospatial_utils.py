@@ -40,7 +40,7 @@ def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str
 
     return tile_ids
 
-def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str]:
+def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origin: str=None) -> list[str]:
     """
     Returns ASTER GDEM tile IDs covering the input geometry.
 
@@ -48,11 +48,19 @@ def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str]:
         N36W002, S12E045, etc.
 
     Args:
-        geometry_gdf (gpd.GeoDataFrame): Input geometry (any CRS)
+        geometry_gdf (gpd.GeoDataFrame):
+            Input geometry (any CRS)
+        geometry_origin (Literal["geojson", "sigpac", "map"]):
+            Used for ASTER TIF file name. Default is `None`.
 
     Returns:
         list[str]: List of ASTER tile IDs
     """
+    # Get geometry origin suffix for filename
+    if geometry_origin.split(".").pop():
+        geom_suffix = geometry_origin.split(".")[0]
+    else:
+        geom_suffix = geometry_origin
 
     # Ensure WGS84 (lat/lon)
     gdf = geometry_gdf.to_crs("EPSG:4326")
@@ -70,6 +78,10 @@ def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str]:
                 lon_prefix = "E" if lon >= 0 else "W"
 
                 tile_id = f"{lat_prefix}{abs(lat):02d}{lon_prefix}{abs(lon):03d}"
+                
+                if geom_suffix is not None:
+                    tile_id += f"_{str(geom_suffix)}"  # append suffix
+                
                 tiles.add(tile_id)
 
     return sorted(tiles)

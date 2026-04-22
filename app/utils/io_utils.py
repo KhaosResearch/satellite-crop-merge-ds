@@ -68,9 +68,8 @@ def save_cropped_data(
         # Generate results dir and filepath
         os.makedirs(output_dir, exist_ok=True)
         if product_key not in PRODUCT_TYPE_FILE_IDS.keys():
-            tiles_tag = resolution_tag  # Used store the tiles str for ASTER products
-            crop_tag = "crop" if not "-" in tiles_tag else "merge-crop"  # Multiple tiles = merge + crop, Single tile = only crop
-            output_filename = f'{"_".join(["ASTGTMV003", product_key, tiles_tag, crop_tag])}.tif'
+            geom_suffix = resolution_tag  # Used store the tiles str for ASTER products
+            output_filename = f'{"_".join(["ASTGTMV003", product_key, geom_suffix])}.tif'
         else:
             output_filename = f'{"_".join([product_key, year_month, "comp", resolution_tag, file_id])}.tif'
         output_path = os.path.join(output_dir, output_filename)

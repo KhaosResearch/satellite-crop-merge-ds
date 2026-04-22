@@ -1,4 +1,5 @@
 import json
+import os
 import structlog
 
 import geopandas as gpd
@@ -134,12 +135,12 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
                 gr.Info(get_text(lang, "msg_start"))
 
             # Get geometry based on input priority
-            geometry_gdf = _get_geometry_gdf(geometry_selection, file, sigpac_reference, map_data)
+            geometry_gdf, geometry_origin = _get_geometry_gdf(geometry_selection, file, sigpac_reference, map_data)
             
             start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
             end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
             src = data_source
-            output_zip, optional_geojson = get_product_for_parcel(src, product_key, geometry_gdf, start_date, end_date, user)
+            output_zip, optional_geojson = get_product_for_parcel(src, product_key, geometry_gdf, start_date, end_date, user, geometry_origin)
             gr.Success(get_text(lang, "msg_success"))
 
             return output_zip, optional_geojson
@@ -239,6 +240,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
         
         if geometry_selection.lower() == "geojson" and file_input:
             geometry_gdf = gpd.read_file(file_input,)
+            geometry_origin = os.path.basename(file_input)
 
         elif geometry_selection.lower() == "sigpac" and sigpac_input:
             # Convert from dict to geojson
@@ -254,6 +256,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
 
             # Convert to GeoDataFrame
             geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4326")
+            geometry_origin = sigpac_input
 
         elif geometry_selection.lower() == "map" and hidden_map_data:
             gr.Info(get_text(lang, "msg_map_sync"))
@@ -267,13 +270,14 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
                 else:
                     # Handle FeatureCollection
                     geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4326")
+                geometry_origin = "polygon"
             except Exception as e:
                 raise gr.Error(get_text(lang, "msg_error_geom", str(e)))
         
         else:
             raise ValueError("Check input!")
 
-        return geometry_gdf
+        return geometry_gdf, geometry_origin
 
     get_data_btn.click(
         process_request,
