@@ -51,15 +51,10 @@ git clone https://github.com/KhaosResearch/satellite-crop-merge-ds.git
 cd satellite-crop-merge-ds
 
 # Generate Virtual Env and install necesary dependencies
-python -m venv venv
-source venv/bin/activate
-# venv\scripts\activate  # For Windows
-pip install --upgrade pip
-pip install -r requirements.txt
+uv sync
 
 # Access and run the app interface
-cd src
-python interface.py 
+uv run app/interface.py 
 ```
 >[!NOTE]
 >Authentication for development mode will take any input, since login always returns `True` by default here. Input username will be used to create the job directories.
