@@ -1,0 +1,31 @@
+# Git
+.git/
+.gitignore
+.github/
+
+# Python
+.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.python-version
+.ruff_cache/
+
+# Secrets
+.env
+.envrc
+
+# Runtime / generated data
+app/results/
+**/db/
+**/*.db
+**/*.sqlite
+
+# Docs & misc
+docs/
+misc/
+*.md
+
+# Dev tools
+requirements.txt
