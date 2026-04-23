@@ -68,7 +68,22 @@ python interface.py
 You can easily deploy the project using `uvicorn` and indicating both `host` and `port` for deployment:
 ```bash
 cd app
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+### 🐳 Docker:
+**Build the image:**
+```bash
+docker build -t satellite-crop-merge-ds .
+```
+
+**Run the container** (pass your `.env` file as environment source):
+```bash
+docker run -d \
+  --name satellite-crop-merge-ds \
+  --env-file .env \
+  -p 8080:8080 \
+  satellite-crop-merge-ds
 ```
 
 ## Annex:
