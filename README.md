@@ -22,14 +22,35 @@ Detailed technical documentation is available in the `docs/` directory:
 git clone https://github.com/KhaosResearch/satellite-crop-merge-ds.git
 cd satellite-crop-merge-ds
 
-# Setup environment
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# Generate Virtual Env and install necesary dependencies
+uv sync
 
-# Run the app
+# Access and run the app interface
+uv run app/interface.py 
+```
+>[!NOTE]
+>Authentication for development mode will take any input, since login always returns `True` by default here. Input username will be used to create the job directories.
+
+## 💻 Deployment:
+You can easily deploy the project using `uvicorn` and indicating both `host` and `port` for deployment:
+```bash
 cd app
-python interface.py
+uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+### 🐳 Docker:
+**Build the image:**
+```bash
+docker build -t satellite-crop-merge-ds .
+```
+
+**Run the container** (pass your `.env` file as environment source):
+```bash
+docker run -d \
+  --name satellite-crop-merge-ds \
+  --env-file .env \
+  -p 8080:8080 \
+  satellite-crop-merge-ds
 ```
 
 ## 📄 License
