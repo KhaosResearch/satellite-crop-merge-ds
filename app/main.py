@@ -119,7 +119,7 @@ def new_user(api_key: str = Depends(query_scheme)) -> dict:
 app = gr.mount_gradio_app(
     app,
     interface,
-    path="",
+    path=os.getenv("SCRIPT_NAME", default="/"),
     auth=authenticate_user,
     theme="gradio/monochrome",
     head=JS_RECIEVER,
