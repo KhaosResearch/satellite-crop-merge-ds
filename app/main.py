@@ -1,9 +1,13 @@
 import os
+import io
 import random
 import string
 import threading
 import bcrypt
 import structlog
+import zipfile
+import requests
+import uvicorn
 
 import gradio as gr
 
@@ -25,6 +29,8 @@ logger = structlog.get_logger()
 """ Read environment variables """
 
 load_dotenv()
+KML_FILE_URL = "https://sentiwiki.copernicus.eu/__attachments/1692737/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.zip?inst-v=4ece9b51-c9c2-42f6-96f6-479e12c9d659"
+KML_FILE_LOCATION = "./assets/"
 
 # --- Lifespan handler ---
 @asynccontextmanager
@@ -36,16 +42,26 @@ async def lifespan(app: FastAPI):
     run_cleanup_pass(base_dir=base_dir)
     start_cleanup(base_dir=base_dir)
 
+    try:
+        response = requests.get(KML_FILE_URL, stream=True)
+        response.raise_for_status()
+        z = zipfile.ZipFile(io.BytesIO(response.content))
+        z.extractall(KML_FILE_LOCATION)
+        print("Successfully downloaded and extracted KML files on startup.")
+    except requests.exceptions.RequestException as e:
+        print(f"Download failed: {e}")
+    except zipfile.BadZipFile:
+        print("The URL didn't actually return a valid ZIP file.")
+
     yield  #  App runs here
 
     # Shutdown logic (optional for now)
-    # TODO: optional
 
 app = FastAPI(title="Satellite Crop and Merge Downloader API",
               description="Agrotech application to download satellite data from specific geometry",
               lifespan=lifespan)
 
-x_api_key = os.getenv("API_KEY", default = "Cr0p4ndM3rg3S3rv1c3")
+x_api_key = os.getenv("API_KEY", default="Cr0p4ndM3rg3S3rv1c3")
 
 query_scheme = APIKeyQuery(name="x_api_key")
 
@@ -127,5 +143,4 @@ app = gr.mount_gradio_app(
 )
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
