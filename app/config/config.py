@@ -23,11 +23,11 @@ PRODUCTS_DICT = {
         "Vegetation Water Content": "WaterContent",
         "Water Masses": "WaterMass",
         "Vegetation Yellowing": "Yellow",
+        "Land Cover": "LandCover",
+        "Forest Species": "ForestMap",
         "Terrain Orientation": "aspect",
         "Terrain Elevation": "elevation",
         "Terrain Slope": "slope",
-        "Land Cover Map": "LandCover",
-        "Forest Species Map": "ForestMap",
     },
     "es": {
         "Aerosoles Atmosféricos": "AOT",
@@ -40,11 +40,11 @@ PRODUCTS_DICT = {
         "Contenido hídrico en plantas": "WaterContent",
         "Masas de aguas": "WaterMass",
         "Amarillamiento Vegetal": "Yellow",
+        "Cubiertas de Suelo": "LandCover",
+        "Especies Forestales": "ForestMap",
         "Orientaciones del Terreno": "aspect",
         "Topografía del Terreno": "elevation",
         "Pendientes del Terreno": "slope",
-        "Mapa de Cubiertas": "LandCover",
-        "Mapa Especies Forestales": "ForestMap",
     }
 }
 PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", 

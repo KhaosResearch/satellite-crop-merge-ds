@@ -24,6 +24,8 @@ To provide access to the maps offered in the EDAAn catalogue, the Geospatial Dat
 | **Vegetation Water Content of Andalusia** | `Vegetation Water Content` | Monthly water content maps. 20m resolution. Values from -1 (dry) to 1 (high water content). |
 | **Surface Water Mass Maps of Andalusia** | `Water Masses` | Monthly surface water maps. 20m resolution. Values from 0 (no water) to 1 (water). |
 | **Vegetation Yellowing Maps of Andalusia** | `Vegetation Yellowing` | Monthly yellowing maps. 10m resolution. Values from -1 (green) to 1 (yellow). Due to flowering or seasonal changes. |
+| **Land Cover Maps of Andalusia** | `Land Cover` | Land cover map of the Andalusia region in image format, at 10 m pixel resolution, for the year 2021. Downloadable in adapted parcel cutouts, in TIF or PNG format. Contains 9 classes. The map legend is provided in .qml format, compatible with QGIS image viewing and analysis software. |
+| **Forest Species Maps of Andalusia** | `Forest Species` | Map of forest species of the Andalusia region from the year 2021 in image or polygon format. Maps in image format are offered at 10 m pixel resolution, downloadable in adapted plot sections, in TIF or PNG format. Contains a total of 17 plant species. Types of forest species are separated into dense forests (50-100% tree cover) and open forests (30-50% tree cover). The cartography legend is provided in .qml format, compatible with QGIS. |
 
 </details>
 
@@ -44,6 +46,8 @@ To provide access to the maps offered in the EDAAn catalogue, the Geospatial Dat
 >
 
 <details><summary style="cursor: pointer;">About vailable data source limitations.</summary>
+
+>
 
 | Source | ✔️Pros | ❌Cons |
 | --- | --- | --- |
