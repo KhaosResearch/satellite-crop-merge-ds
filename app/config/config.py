@@ -52,6 +52,9 @@ SOURCE_CLIENT = get_src_minio_client()
 ASDATA_CLIENT = get_src_minio_client(os.environ.get('ASDATA_MINIO_ACCESS_KEY'), os.environ.get('ASDATA_MINIO_SECRET_KEY'))
 ASDATA_BUCKET = os.environ.get('ASDATA_MINIO_BUCKET_NAME')
 
+LANDCOVER_CLIENT = get_src_minio_client(os.environ.get('LANDCOVER_MINIO_ACCESS_KEY'), os.environ.get('LANDCOVER_MINIO_SECRET_KEY'))
+LANDCOVER_BUCKET = os.environ.get('LANDCOVER_MINIO_BUCKET_NAME')
+
 SENTINEL2_GRIDS_FILE = os.environ.get('SENTINEL2_GRIDS_FILE')
 
 # --- MINIO PRODUCT TYPE DATA ---
