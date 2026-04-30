@@ -26,6 +26,8 @@ PRODUCTS_DICT = {
         "Terrain Orientation": "aspect",
         "Terrain Elevation": "elevation",
         "Terrain Slope": "slope",
+        "Land Cover Map": "LandCover",
+        "Forest Species Map": "ForestMap",
     },
     "es": {
         "Aerosoles Atmosféricos": "AOT",
@@ -41,9 +43,12 @@ PRODUCTS_DICT = {
         "Orientaciones del Terreno": "aspect",
         "Topografía del Terreno": "elevation",
         "Pendientes del Terreno": "slope",
+        "Mapa de Cubiertas": "LandCover",
+        "Mapa Especies Forestales": "ForestMap",
     }
 }
-PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow", "aspect", "elevation", "slope"],
+PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", 
+                    "WaterMass", "Yellow", "aspect", "elevation", "slope", "LandCover", "ForestMap"]
 
 # --- MINIO CREDENTIALS ---
 SOURCE_BUCKET = os.environ.get('MINIO_BUCKET_NAME')

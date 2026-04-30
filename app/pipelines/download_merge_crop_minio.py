@@ -58,13 +58,12 @@ def download_merge_crop_minio(
         geometry= geometry_gdf.geometry.values[0]
         
         # Check and setup prefix if user requested Sentinel composite data or ASTER data (aspect, elevation or slope)
-        if product_key in ["images", "AOT", "TCI", "WVP", "aspect", "elevation", "slope"]:
+        if product_key in ["images", "AOT", "TCI", "WVP", "aspect", "elevation", "slope", "LandCover", "ForestMap"]:
             product_prefix = product_key
         else:
             product_prefix = os.path.join("indices", product_key)
 
         temp_dir = tempfile.mkdtemp()
-
         is_sentinel_data = product_key in PRODUCT_TYPE_FILE_IDS.keys()
 
         if is_sentinel_data:
@@ -73,9 +72,16 @@ def download_merge_crop_minio(
 
             saved_files = get_sentinel_composites_data(tiles_list, year_months, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry, product_prefix, product_config, temp_dir)
         else:
-            # Download-crop-merge from Aster data
-            saved_files = get_aster_gdem_data(tiles_list, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry, temp_dir)
+            match product_key:
+                case "aspect" | "elevation" | "slope":
+                    # Download-crop-merge from Aster data
+                    saved_files = get_aster_gdem_data(tiles_list, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry, temp_dir)
+                case "LandCover" | "ForestMap":
+                    # Download-crop-merge from Land Cover data
+                    saved_files = get_landcover_forestmap_data(tiles_list, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry, temp_dir)
+
         zip_path = save_to_zip(product_key, job_dir, saved_files)
+
         return zip_path
     
     except Exception as e:
@@ -190,7 +196,7 @@ def get_aster_gdem_data(
         saved_files (list[str]):
             List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
     """
-    logger.info(f"Acessign ASTER GDEM data...")
+    logger.info(f"Acessing ASTER GDEM data...")
     # Set the filename pattern for Aster GDEM products
     extensions = [".tif", ".tfw"] if product_key != "elevation" else [".tif"]
     prefix = f"ASTGTMV003_tile" if product_key == "elevation" else product_key
@@ -211,6 +217,81 @@ def get_aster_gdem_data(
     saved_files = process_merge_crop(local_paths, geometry, job_dir, product_key, saved_files,
                                      product_prefix=product_key,subfolder="", file_id="", year="",
                                      month="", resolution_tag=geom_suffix)
+
+    return saved_files
+
+def get_landcover_forestmap_data(
+        tiles_list: list[str],
+        product_key: str,
+        job_dir: str,
+        minio_client: Minio,
+        minio_bucket: str,
+        saved_files: list[str],
+        geometry: gpd.GeoDataFrame,
+        temp_dir: str
+    )-> list[str]:
+    """It iterates over the `sentinel2-composites` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data (`LandCover` or `ForestMap`).
+    Args:
+        tiles_list (list[str]):
+            Sentinel-2 tile's ID list.
+        product_key (str):
+            Product ID string.
+        job_dir (str):
+            The Job directory where the cropped files will be saved before being compressed in a ZIP file.
+        minio_client (Minio):
+            The MinIO client with access to the bucket.
+        minio_bucket (str):
+            The MinIO bucket name.
+        saved_files (list[str]):
+            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+        geometry (gpd.GeoDataFrame):
+            The parcel's geometry.
+        temp_dir (str):
+            Temporary directory to save the downloaded files from MinIO before merging and cropping.
+    Returns:
+        saved_files (list[str]):
+            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+    """
+    logger.info(f"Acessing {product_key.upper()} data...")
+    
+    local_paths = []
+    
+    qml_paths = []
+
+    for tile in tiles_list:
+
+        year = "2021"  # Only year for LC and FM data
+        logger.debug(f"Acessing {product_key.upper()} data from {year}...")
+
+        # Get geometry origin suffix for local filepaths
+        print(tiles_list)
+        last_tile_parts = tiles_list[-1].split("_")
+        if len(last_tile_parts) > 1:
+            geom_suffix = last_tile_parts.pop()
+        
+        # Get MinIO dir via prefix
+        object_prefix = os.path.join(product_key, tile, year)
+        minio_files_list = minio_client.list_objects(minio_bucket, prefix=object_prefix, recursive=True)
+
+        # Iterate over bucket and download files
+        for obj in minio_files_list:
+            # TODO: We assume the .tif and .qml file are the only two files here. Check for real
+            if obj.object_name.endswith(".qml"):
+                output_filepath = os.path.join(job_dir, product_key, year, os.path.basename(obj.object_name))
+                logger.debug(f"Saving legend to ZIP file list directly from:\n\t\t\t\t   {output_filepath}")
+                qml_paths.append(output_filepath)
+            elif obj.object_name.endswith(".tif"):
+                output_filepath = os.path.join(temp_dir, os.path.basename(obj.object_name))
+                local_paths.append(output_filepath)  # Add the .tif to be merged and cropped
+            else:
+                continue
+            minio_client.fget_object(minio_bucket, obj.object_name, output_filepath)
+
+    saved_files = process_merge_crop(local_paths, geometry, job_dir, product_key, saved_files,
+                                product_prefix=product_key,subfolder="", file_id="", year=year,
+                                month="", resolution_tag=geom_suffix)
+    
+    saved_files.extend(qml_paths)  # Add the .qml files to be included in ZIP file directly
 
     return saved_files
 

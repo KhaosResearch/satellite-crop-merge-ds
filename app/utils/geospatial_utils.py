@@ -14,8 +14,8 @@ logger = structlog.get_logger()
 
 # --- GEOSPATIAL LOGIC ---
 
-def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str]:
-    """Get the tile/tiles the geometry is comprised in.
+def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origin: str=None) -> list[str]:
+    """Get the Sentinel-2 tile/tiles the geometry is comprised in. Also, insert the geometry origin on last tiles' ID for filenaming purposes...
     Args:
         geometry_gdf (gpd.GeoDataFrame):
             The parcel's geometry.
@@ -23,6 +23,12 @@ def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str
         tile_ids (list[str]):
             The Setinel-2 Tile's ID list.
     """
+    # Get geometry origin suffix for filename
+    if geometry_origin.split(".").pop():
+        geom_suffix = geometry_origin.split(".")[0]
+    else:
+        geom_suffix = geometry_origin
+
     if not SENTINEL2_GRIDS_FILE or not os.path.exists(SENTINEL2_GRIDS_FILE):
         raise FileNotFoundError(
             f"GEOMETRY_FILE is not set or does not exist: {SENTINEL2_GRIDS_FILE}")
@@ -38,11 +44,14 @@ def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame) -> list[str
     # Tile IDs
     tile_ids = result["Name"].unique()  # or "tile_id" depending on dataset
 
+    if geom_suffix is not None:
+        tile_ids[-1] = f"{tile_ids[-1]}_{str(geom_suffix)}"  # append suffix
+
     return tile_ids
 
 def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origin: str=None) -> list[str]:
     """
-    Returns ASTER GDEM tile IDs covering the input geometry.
+    Returns ASTER GDEM tile IDs covering the input geometry. Also, insert the geometry origin on all tiles' ID for filenaming purposes...
 
     Tiles follow the format:
         N36W002, S12E045, etc.
@@ -50,7 +59,7 @@ def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origi
     Args:
         geometry_gdf (gpd.GeoDataFrame):
             Input geometry (any CRS)
-        geometry_origin (Literal["geojson", "sigpac", "map"]):
+        geometry_origin (str):
             Used for ASTER TIF file name. Default is `None`.
 
     Returns:

@@ -11,7 +11,7 @@ import uuid
 from minio import Minio
 from pathlib import Path
 
-from config.config import PRODUCT_TYPE_FILE_IDS, RESULTS_FULL_PATH, SOURCE_BUCKET, SOURCE_CLIENT
+from config.config import RESULTS_FULL_PATH, SOURCE_BUCKET, SOURCE_CLIENT
 
 logger = structlog.get_logger()
 
@@ -34,6 +34,7 @@ def save_cropped_data(
 )->list[str]:
     """It saves locally all files associated to the product.
     It uses the arguments to mimic the MinIO dir structure on local.
+    Filename order is `product_key, year_month, "comp", resolution_tag, file_id .tif'` separated by `"_"` (except for ASTER products and LandCover/ForestMap).
     Args:
         product_key (str):
             The ID of the product.
@@ -57,6 +58,8 @@ def save_cropped_data(
             Cropped image metadata.
         minio_client (Minio):
             The MinIO client with access to the bucket. Only needed if `saved_files` has not got the README.
+        minio_bucket (str):
+            The name of the MinIO bucket.
     Returns:
         saved_files (list[str]):
             List of saved files associated to the product.
@@ -67,9 +70,12 @@ def save_cropped_data(
         
         # Generate results dir and filepath
         os.makedirs(output_dir, exist_ok=True)
-        if product_key not in PRODUCT_TYPE_FILE_IDS.keys():
-            geom_suffix = resolution_tag  # Used store the tiles str for ASTER products
+        if product_key in ['aspect', 'elevation', 'slope']:
+            geom_suffix = resolution_tag 
             output_filename = f'{"_".join(["ASTGTMV003", product_key, geom_suffix])}.tif'
+        elif product_key in ['LandCover', 'ForestMap']:
+            geom_suffix = resolution_tag 
+            output_filename = f'{"_".join([product_key, geom_suffix, year])}.tif'
         else:
             output_filename = f'{"_".join([product_key, year_month, "comp", resolution_tag, file_id])}.tif'
         output_path = os.path.join(output_dir, output_filename)
@@ -95,7 +101,7 @@ def save_to_zip(product_key: str, job_dir: str, saved_files: list[str])->str:
     logger.info(f"Zipping files list...")
     with zipfile.ZipFile(zip_path, "w") as z:
         for file in saved_files:
-            if file.endswith(".tif") or file.endswith(".tfw"):
+            if file.endswith(".tif") or file.endswith(".tfw") or file.endswith(".qml"):
                 filepath = Path(file).relative_to(job_dir)
                 if "/indices/" in file:
                     filepath = Path(str(filepath).split("indices/").pop())
@@ -140,6 +146,8 @@ def _save_readme(
             List of saved files associated to the product.
         minio_client (Minio):
             The MinIO client with access to the bucket.
+        minio_bucket (str):
+            The name of the MinIO bucket.
     Returns:
         saved_files (list[str]):
             List of saved files associated to the product.
