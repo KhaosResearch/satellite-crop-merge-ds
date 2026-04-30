@@ -261,13 +261,12 @@ def get_landcover_forestmap_data(
     for tile in tiles_list:
 
         year = "2021"  # Only year for LC and FM data
-        logger.debug(f"Acessing {product_key.upper()} data from {year}...")
-
         # Get geometry origin suffix for local filepaths
         print(tiles_list)
         last_tile_parts = tiles_list[-1].split("_")
         if len(last_tile_parts) > 1:
             geom_suffix = last_tile_parts.pop()
+        tiles_list =[tile.split("_")[0] for tile in tiles_list]  # Clear geom suffix just in case
         
         # Get MinIO dir via prefix
         object_prefix = os.path.join(product_key, tile, year)

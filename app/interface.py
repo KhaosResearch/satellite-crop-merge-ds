@@ -167,8 +167,24 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
         end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
         is_in_temporal_range = min_start_date <= start_date <= max_end_date and min_start_date <= end_date <= max_end_date
         
-        # Get Sigpac input
-        is_sigpac_geometry = file_input is None and sigpac_input is not None
+        # Get Sigpac input and geom
+        if file_input is None and sigpac_input is not None:
+            is_sigpac_geometry = True
+            geometry, __  = find_from_cadastral_registry(sigpac_input)
+            geojson = {
+                "type": "Feature",
+                "geometry": {
+                    "type": geometry["type"],
+                    "coordinates": [list(map(list, geometry["coordinates"][0]))]
+                },
+                "properties": {}
+            }
+
+            # Convert to GeoDataFrame
+            geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4326")
+        else:
+            is_sigpac_geometry = False
+
 
         # Get Andalusia geometry
         andalusia_gfd = gpd.read_file(str(ANDALUSIA_GEOJSON_FILEPATH),) 
@@ -271,6 +287,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
                     # Handle FeatureCollection
                     geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4326")
                 geometry_origin = "polygon"
+
             except Exception as e:
                 raise gr.Error(get_text(lang, "msg_error_geom", str(e)))
         

@@ -65,7 +65,7 @@ def get_product_for_parcel(
             minio_bucket = SOURCE_BUCKET
             tiles = get_sentinel_tiles_from_geometry(geometry_gdf, geometry_origin)
 
-        logger.debug(f"Tiles:\n{tiles}")
+        logger.debug(f"Tiles:\n{[tile.split("_")[0] for tile in tiles]}")
         dates = get_year_month_pair(start_date, end_date)
         logger.debug(dates)
     
