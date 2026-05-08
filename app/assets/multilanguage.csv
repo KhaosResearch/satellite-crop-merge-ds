@@ -25,3 +25,4 @@ err_end_date_gt,La fecha inicial no puede ser mayor que la fecha final.,Start da
 err_date_gt_today,La fecha no puede ser mayor que hoy.,Dates cannot be greater than today.
 err_date_format,Formato de fecha inválido.,Invalid date format.
 err_geom,"La geometría de la parcela no se especificó. Suba un archivo GeoJSON, introduzca una referencia de SIGPAC o dibújela en el mapa.","Parcel geometry not specified. Upload a GeoJSON file, provide a SIGPAC reference, or draw on the map."
+warning_date,Este producto solo tiene datos disponibles del año,This product only has available data from the year

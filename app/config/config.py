@@ -196,6 +196,9 @@ HIDE_MAP_TEXTBOX_CSS = """
 #map_data_input { 
     display: none !important; 
 }
+.disabled-column {
+    opacity: 0.5;
+}
 """
 
 def get_draw_map_custom_script(map_id: str):

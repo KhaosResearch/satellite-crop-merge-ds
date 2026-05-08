@@ -103,7 +103,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
     lang_selector.change(
         update_language, 
         inputs=[lang_selector, product_select], 
-        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select,get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
+        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
     )
 
     # Geometry Visibility
@@ -117,6 +117,40 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
         ]
     
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
+
+    def toggle_date(choice, lang):
+        # Get products list using lang
+        current_products_list = list(PRODUCTS_DICT[lang].keys())
+        
+        # Check for date restriction
+        is_fixed_year_product = choice in current_products_list[-5:]
+        if is_fixed_year_product:
+            if choice in current_products_list[-5:-3]:
+                year = "2021"
+            else:
+                year = "2022"
+
+            gr.Info(get_text(lang, "warning_date", f"{year}."))
+
+            # Disable date inputs and visually dim them
+            return (
+                gr.update(interactive=False, visible=True),
+                gr.update(interactive=False, visible=True),
+                gr.update(elem_classes="disabled-column")
+            )
+
+        # Re-enable normally
+        return (
+            gr.update(interactive=True),
+            gr.update(interactive=True),
+            gr.update(elem_classes=[])
+        )
+
+    product_select.change(
+        toggle_date,
+        inputs=[product_select, lang_state],
+        outputs=[start_date, end_date, date_column]
+    )
 
     # Execution Logic
     def process_request(lang, product_select, geometry_selection, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
