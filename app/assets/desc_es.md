@@ -9,7 +9,7 @@ Para poder tener acceso a los mapas ofertados en el catálogo del EDAAn, se ha c
 
 >**Tenga en cuenta que los rangos temporales amplios tomarán su tiempo de procesar, especialmente para productos con muchos archivos asociados (`images` o `Vegetation`).**
 
-<details><summary style="cursor: pointer;">Tabla 1: Correspondencia de claves de productos Sentinel con entradas en el catálogo.</summary>
+<details><summary style="cursor: pointer;">Listado de productos disponibles.</summary>
 
 ---
 
@@ -26,24 +26,13 @@ Para poder tener acceso a los mapas ofertados en el catálogo del EDAAn, se ha c
 | **Mapas de amarillamiento de la vegetación de Andalucía** | `Amarillamiento Vegetal` | Mapas mensuales de amarilleamiento de la vegetación en la región de Andalucía. El rango temporal incluye desde el año 2017 hasta el 2025. Mapas en formato imagen, a 10 m de resolución de píxel. Descargable en recortes de parcela adaptados, en formato TIF. Rango de valores de -1 (zonas sin vegetación o vegetación verde) a 1 (zonas de vegetación amarilla).El amarillamiento de las plantas se puede deber a floración amarilla (por ejemplo, la colza) o la época de otoño (por ejemplo, en castañares o alamedas). |
 | **Mapas de cubiertas de suelo de Andalucía** | `Cubiertas de Suelo` | Mapa de cubiertas de suelo en la región de Andalucía en formato imagen, a 10 m de resolución de píxel, del año 2021. Descargable en recortes de parcela adaptados, en formato TIF o PNG. Contiene 9 clases. La leyenda de la cartografía se proporciona en formato .qml, compatible con el software de visualización y análisis de imágenes QGIS. |
 | **Mapas de especies forestales de Andalucía** | `Especies Forestales` | Mapa de especies forestales en la región de Andalucía del año 2021 en formato imagen o poligonal. Los mapas en formato imagen se ofrecen a 10 m de resolución de píxel, descargable en recortes de parcela adaptados, en formato TIF o PNG. Contiene un total de 17 especies vegetales. Tipos de especies forestales separados en bosques densos (50-100% de cubierta arbórea) y bosques abiertos (30-50% de cubierta arbórea). La leyenda de la cartografía se proporciona en formato .qml, compatible con QGIS. |
-
-</details>
-
->
-
-<details><summary style="cursor: pointer;">Tabla 2: Correspondencia de claves de productos ASTER con entradas en el catálogo.</summary>
-
----
-
-| Entrada del catálogo | Clave del producto | Descripción |
-| :--- | :---: | --- |
 | **Mapa de orientaciones topográficas de Andalucía** | `Orientaciones del Terreno` | Mapa digital de orientaciones de las pendientes de la región de Andalucía en formato imagen, a 25 m de resolución de píxel. Descargable en recortes de parcela adaptados, en formato TIF. Rango de valores de 0 a 359 grados, siendo 0 orientación norte, 180 orientación sur, 90 orientación este y 270 orientación oeste.|
 | **Mapa topográfico de Andalucía** | `Topografía del Terreno` | Mapa digital de elevaciones de la región de Andalucia en formato imagen, a 25 m de resolución de píxel. Descargable en recortes de parcela adaptados, en formato TIF. Rango de valores de 0 a 4000 m, en metros. |
 | **Mapa de pendientes topográficas de Andalucía** | `Pendientes del Terreno` | Mapa digital de pendientes del suelo de la región de Andalucía en formato imagen, a 25 m de resolución de píxel. Descargable en recortes de parcela adaptados, en formato TIF. Rango de valores de 0 a 90, en grados de inclinación, siendo 0 la horizontal y 90 la vertical. |
 
 </details>
 
->
+<!-- >
 
 <details><summary style="cursor: pointer;">Sobre las limitaciones de las fuentes de datos disponibles.</summary>
 
@@ -55,6 +44,6 @@ Para poder tener acceso a los mapas ofertados en el catálogo del EDAAn, se ha c
 | **Sentinel Hub API** | · Todas las regiones del mundo disponibles.<br>· Datos espectrales actualizados. | · Riesgo de incurrir en los límites de llamadas a la API. |
 
 > Documentación de Sentienl Hub API [en este enlace](https://docssentinel-hub.com/api/latest/). 
-</details>
+</details> -->
 
 ---

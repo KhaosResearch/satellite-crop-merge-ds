@@ -9,7 +9,7 @@ To provide access to the maps offered in the EDAAn catalogue, the Geospatial Dat
 
 >**Please note that broad time ranges will take longer to process, especially for products with high file counts (such as `images` or `Vegetation`).**
 
-<details><summary style="cursor: pointer;">Table 1: Correspondence between Sentinel product keys and catalogue entries.</summary>
+<details><summary style="cursor: pointer;">List of available products.</summary>
 
 ---
 
@@ -26,24 +26,13 @@ To provide access to the maps offered in the EDAAn catalogue, the Geospatial Dat
 | **Vegetation Yellowing Maps of Andalusia** | `Vegetation Yellowing` | Monthly yellowing maps. 10m resolution. Values from -1 (green) to 1 (yellow). Due to flowering or seasonal changes. |
 | **Land Cover Maps of Andalusia** | `Land Cover` | Land cover map of the Andalusia region in image format, at 10 m pixel resolution, for the year 2021. Downloadable in adapted parcel cutouts, in TIF or PNG format. Contains 9 classes. The map legend is provided in .qml format, compatible with QGIS image viewing and analysis software. |
 | **Forest Species Maps of Andalusia** | `Forest Species` | Map of forest species of the Andalusia region from the year 2021 in image or polygon format. Maps in image format are offered at 10 m pixel resolution, downloadable in adapted plot sections, in TIF or PNG format. Contains a total of 17 plant species. Types of forest species are separated into dense forests (50-100% tree cover) and open forests (30-50% tree cover). The cartography legend is provided in .qml format, compatible with QGIS. |
-
-</details>
-
->
-
-<details><summary style="cursor: pointer;">Table 2: Correspondence between ASTER product keys and catalogue entries.</summary>
-
----
-
-| Catalogue Entry | Product Key | Description |
-| :--- | :---: | --- |
 | **Topographic Orientation Maps of Andalusia** | `Terrain Orientation` | Digital map of slope orientations in the Andalusia region in image format, with a 25 m pixel resolution. Downloadable in adapted parcel sections, in TIF format. Range of values from 0 to 359 degrees, with 0 indicating north orientation, 180 south orientation, 90 east orientation, and 270 west orientation. |
 | **Topographic Maps of Andalusia** | `Terrain Elevation` | Digital elevation map of the Andalusia region in image format, with a 25 m pixel resolution. Downloadable in adapted plot sections, in TIF format. Value range from 0 to 4000 m, in meters. |
 | **Topographic Slope Maps of Andalusia** | `Terrain Slope` | Digital map of ground slopes of the Andalusia region in image format, with a 25 m pixel resolution. Downloadable in adapted plot sections, in TIF format. Value range from 0 to 90, in degrees of slope, with 0 being horizontal and 90 vertical. |
 
 </details>
 
->
+<!-- >
 
 <details><summary style="cursor: pointer;">About vailable data source limitations.</summary>
 
@@ -56,6 +45,6 @@ To provide access to the maps offered in the EDAAn catalogue, the Geospatial Dat
 
 > Sentienl Hub API documentation [on this link](https://docssentinel-hub.com/api/latest/). 
 
-</details>
+</details> -->
 
 ---
