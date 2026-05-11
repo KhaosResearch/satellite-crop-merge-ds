@@ -156,7 +156,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
     def process_request(lang, product_select, geometry_selection, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
         product_key = PRODUCTS_DICT.get(lang, None).get(product_select, None)
         get_data_btn.interactive = False
-        data_source = _get_source(product_key, geometry_selection, file, sigpac_reference, map_data, start_date, end_date)
+        data_source = _get_source(lang, product_key, geometry_selection, file, sigpac_reference, map_data, start_date, end_date)
         try:
             # Gradio automatically populates request.username if auth is enabled
             user = request.username if request and request.username is not None else "user-1234"
@@ -182,7 +182,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
         finally:
             get_data_btn.interactive = True
 
-    def _get_source(product_select: str, geometry_selection: str, file_input: str, sigpac_input: str, hidden_map_data: str, start_date: str, end_date: str)->str:
+    def _get_source(lang, product_select: str, geometry_selection: str, file_input: str, sigpac_input: str, hidden_map_data: str, start_date: str, end_date: str)->str:
         # Set Sentinel source by default
         src = "sentinel"
 
