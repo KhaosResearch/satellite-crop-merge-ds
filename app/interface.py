@@ -103,7 +103,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
     lang_selector.change(
         update_language, 
         inputs=[lang_selector, product_select], 
-        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select,get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
+        outputs=[title_md, subtitle_md, description_md, geom_type, start_date, end_date, product_select, get_data_btn, file_input, sigpac_input, optional_geojson_file, output_zip_file, lang_state]
     )
 
     # Geometry Visibility
@@ -118,11 +118,45 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
     
     geom_type.change(toggle_geom_ui, inputs=[geom_type], outputs=[file_input, sigpac_input, map_box])
 
+    def toggle_date(choice, lang):
+        # Get products list using lang
+        current_products_list = list(PRODUCTS_DICT[lang].keys())
+        
+        # Check for date restriction
+        is_fixed_year_product = choice in current_products_list[-5:]
+        if is_fixed_year_product:
+            if choice in current_products_list[-5:-3]:
+                year = "2021"
+            else:
+                year = "2022"
+
+            gr.Info(get_text(lang, "warning_date", f"{year}."))
+
+            # Disable date inputs and visually dim them
+            return (
+                gr.update(interactive=False, visible=True),
+                gr.update(interactive=False, visible=True),
+                gr.update(elem_classes="disabled-column")
+            )
+
+        # Re-enable normally
+        return (
+            gr.update(interactive=True),
+            gr.update(interactive=True),
+            gr.update(elem_classes=[])
+        )
+
+    product_select.change(
+        toggle_date,
+        inputs=[product_select, lang_state],
+        outputs=[start_date, end_date, date_column]
+    )
+
     # Execution Logic
     def process_request(lang, product_select, geometry_selection, file, sigpac_reference, map_data, start_date, end_date, request: gr.Request):
         product_key = PRODUCTS_DICT.get(lang, None).get(product_select, None)
         get_data_btn.interactive = False
-        data_source = _get_source(product_key, file, sigpac_reference, map_data, start_date, end_date)
+        data_source = _get_source(product_key, geometry_selection, file, sigpac_reference, map_data, start_date, end_date)
         try:
             # Gradio automatically populates request.username if auth is enabled
             user = request.username if request and request.username is not None else "user-1234"
@@ -148,7 +182,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
         finally:
             get_data_btn.interactive = True
 
-    def _get_source(product_select: str, file_input: str, sigpac_input: str, hidden_map_data: str, start_date: str, end_date: str)->str:
+    def _get_source(product_select: str, geometry_selection: str, file_input: str, sigpac_input: str, hidden_map_data: str, start_date: str, end_date: str)->str:
         # Set Sentinel source by default
         src = "sentinel"
 
@@ -167,8 +201,24 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
         end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
         is_in_temporal_range = min_start_date <= start_date <= max_end_date and min_start_date <= end_date <= max_end_date
         
-        # Get Sigpac input
-        is_sigpac_geometry = file_input is None and sigpac_input is not None
+        # Get Sigpac input and geom
+        if "sigpac" in geometry_selection.lower() and sigpac_input is not None:
+            is_sigpac_geometry = True
+            geometry, __  = find_from_cadastral_registry(sigpac_input)
+            geojson = {
+                "type": "Feature",
+                "geometry": {
+                    "type": geometry["type"],
+                    "coordinates": [list(map(list, geometry["coordinates"][0]))]
+                },
+                "properties": {}
+            }
+
+            # Convert to GeoDataFrame
+            geometry_gdf = gpd.GeoDataFrame.from_features([geojson], crs="EPSG:4326")
+        else:
+            is_sigpac_geometry = False
+
 
         # Get Andalusia geometry
         andalusia_gfd = gpd.read_file(str(ANDALUSIA_GEOJSON_FILEPATH),) 
@@ -271,6 +321,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
                     # Handle FeatureCollection
                     geometry_gdf = gpd.GeoDataFrame.from_features(data["features"], crs="EPSG:4326")
                 geometry_origin = "polygon"
+
             except Exception as e:
                 raise gr.Error(get_text(lang, "msg_error_geom", str(e)))
         

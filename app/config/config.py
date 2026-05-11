@@ -23,6 +23,8 @@ PRODUCTS_DICT = {
         "Vegetation Water Content": "WaterContent",
         "Water Masses": "WaterMass",
         "Vegetation Yellowing": "Yellow",
+        "Land Cover": "LandCover",
+        "Forest Species": "ForestMap",
         "Terrain Orientation": "aspect",
         "Terrain Elevation": "elevation",
         "Terrain Slope": "slope",
@@ -38,12 +40,15 @@ PRODUCTS_DICT = {
         "Contenido hídrico en plantas": "WaterContent",
         "Masas de aguas": "WaterMass",
         "Amarillamiento Vegetal": "Yellow",
+        "Cubiertas de Suelo": "LandCover",
+        "Especies Forestales": "ForestMap",
         "Orientaciones del Terreno": "aspect",
         "Topografía del Terreno": "elevation",
         "Pendientes del Terreno": "slope",
     }
 }
-PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", "WaterMass", "Yellow", "aspect", "elevation", "slope"],
+PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", 
+                    "WaterMass", "Yellow", "aspect", "elevation", "slope", "LandCover", "ForestMap"]
 
 # --- MINIO CREDENTIALS ---
 SOURCE_BUCKET = os.environ.get('MINIO_BUCKET_NAME')
@@ -51,6 +56,9 @@ SOURCE_CLIENT = get_src_minio_client()
 
 ASDATA_CLIENT = get_src_minio_client(os.environ.get('ASDATA_MINIO_ACCESS_KEY'), os.environ.get('ASDATA_MINIO_SECRET_KEY'))
 ASDATA_BUCKET = os.environ.get('ASDATA_MINIO_BUCKET_NAME')
+
+LANDCOVER_CLIENT = get_src_minio_client(os.environ.get('LANDCOVER_MINIO_ACCESS_KEY'), os.environ.get('LANDCOVER_MINIO_SECRET_KEY'))
+LANDCOVER_BUCKET = os.environ.get('LANDCOVER_MINIO_BUCKET_NAME')
 
 SENTINEL2_GRIDS_FILE = os.environ.get('SENTINEL2_GRIDS_FILE')
 
@@ -187,6 +195,9 @@ function() {
 HIDE_MAP_TEXTBOX_CSS = """
 #map_data_input { 
     display: none !important; 
+}
+.disabled-column {
+    opacity: 0.5;
 }
 """
 

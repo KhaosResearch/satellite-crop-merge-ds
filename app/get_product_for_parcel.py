@@ -50,22 +50,23 @@ def get_product_for_parcel(
     init = datetime.now()
     print()
     logger.info(f"--- STARTING DOWNLOAD-MERGE-CROP PROCESS ---\n\n")
-
+    
     if src == "minio":
+        all_minio_keys = all_minio_keys = list(PRODUCT_TYPE_FILE_IDS.keys()) + ["LandCover", "ForestMap"]
         if product_key in ["aspect", "elevation", "slope"]:
             minio_client = ASDATA_CLIENT
             minio_bucket = ASDATA_BUCKET
             tiles = get_aster_tiles_from_geometry(geometry_gdf, geometry_origin)
-        elif product_key not in PRODUCT_TYPE_FILE_IDS.keys():
-            ve = ValueError(f"Error: Product key must be one of the following: {str(PRODUCT_TYPE_FILE_IDS.keys()).replace("[","").replace("[","")}. Product key was: {product_key}")
+        elif product_key not in all_minio_keys:
+            ve = ValueError(f'Error: Product key must be one of the following: {str(all_minio_keys).replace("[","").replace("[","")}. Product key was: {product_key}')
             logger.error(ve)
             raise ve
         else:
             minio_client = SOURCE_CLIENT
             minio_bucket = SOURCE_BUCKET
-            tiles = get_sentinel_tiles_from_geometry(geometry_gdf)
+            tiles = get_sentinel_tiles_from_geometry(geometry_gdf, geometry_origin)
 
-        logger.debug(f"Tiles:\n{tiles}")
+        logger.debug(f"Tiles:\n{[tile.split("_")[0] for tile in tiles]}")
         dates = get_year_month_pair(start_date, end_date)
         logger.debug(dates)
     
