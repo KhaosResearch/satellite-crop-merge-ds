@@ -28,12 +28,12 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 
-COPY app /app/app
+COPY app /app
 
-RUN mkdir -p /app/app/results
+RUN mkdir -p /app/results
 
-ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH="/app/app"
+ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH="/app"
 
-WORKDIR /app/app
+WORKDIR /app
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
