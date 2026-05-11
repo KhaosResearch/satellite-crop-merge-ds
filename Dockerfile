@@ -34,4 +34,6 @@ RUN mkdir -p /app/app/results
 
 ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH="/app/app"
 
+WORKDIR /app/app
+
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

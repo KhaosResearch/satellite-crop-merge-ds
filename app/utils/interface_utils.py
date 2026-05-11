@@ -6,12 +6,12 @@ import pandas as pd
 from branca.element import Element
 from folium.plugins import Draw
 
-from config.config import get_draw_map_custom_script
+from config.config import MULTILANGUAGE_FILEPATH, get_draw_map_custom_script
 
 # --- Multilingual Logic ---
 def load_translations():
     try:
-        df = pd.read_csv("assets/multilanguage.csv", index_col='index')
+        df = pd.read_csv(MULTILANGUAGE_FILEPATH, index_col='index')
         return df.to_dict()
     except:
         # Fallback if file doesn't exist yet

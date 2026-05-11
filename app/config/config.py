@@ -6,11 +6,17 @@ from  config.minio_client import get_src_minio_client
 
 load_dotenv()
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+# --- DIRS & FILES PATH ---
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
 RESULTS_DIR_NAME = "results"
 RESULTS_FULL_PATH = ROOT_DIR / RESULTS_DIR_NAME
 
-ANDALUSIA_GEOJSON_FILEPATH = ROOT_DIR / "assets" / "andalucia.geojson"
+ASSETS_DIR = ROOT_DIR / "assets"
+MULTILANGUAGE_FILEPATH = ASSETS_DIR / "multilanguage.csv"
+ANDALUSIA_GEOJSON_FILEPATH = ASSETS_DIR / "andalucia.geojson"
+
+# --- PRODUCT INFO ---
 PRODUCTS_DICT = {
     "en":{
         "Atmospheric Aerosols": "AOT",
