@@ -27,10 +27,10 @@ The application takes the following parameters for retrieval and download:
     - **GeoJSON file upload:** User will need to hace the geometry file prepared beforehand.
     - **SIGPAC Cadastral Reference:** It will cross-reference the SIGPAC Spanish database to retrieve the geometry.
     - **Draw limits on map:** The most intuitive form to input the geometry. Draw a polygon and process the data found on it.
-- **Data Source (TODO):** Choose between MinIO or Sentinel Hub as the source of the satellite products data
-  - MinIO only covers some tiles, particularly, the ones in the Andalusia, Spain region.
-  - Sentinel Hub uses the public API to retrieve Sentinel-2 satellite data from virtually anywhere. Its use could potentially lead to hit API request limits.
 
+With this information, at the momento of sending the request, the input is used to determine which data sources is more suitable for the task:    
+- **MinIO:** It only covers some tiles, specifically, the ones in the Andalusia, Spain region. The max date range available is limited: (Apr. 2017 - Dec. 2025 included)
+- **Sentinel Hub:** It is a public API that retrieves Sentinel-2 satellite data from virtually anywhere in the world. The available dates depend on the collection, but it stays updated, meaning users can get the latest data. However, its use could potentially lead to hit API request limits.
 
 ### Output
 1. **Compressed Product Data files (ZIP)**:
