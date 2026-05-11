@@ -92,7 +92,9 @@ def get_product_for_parcel(
         )
 
     # Save geometry as GeoJSON
-    optional_geojson_filepath = os.path.join(job_dir, f"{geometry_origin}_geometry.geojson")
+    geometry_origin = os.path.splitext(os.path.basename(geometry_origin))[0]
+    optional_geojson_filename = "geometry.geojson" if geometry_origin == "geometry" else f"{geometry_origin}_geometry.geojson"
+    optional_geojson_filepath = os.path.join(job_dir, optional_geojson_filename)
     with open(optional_geojson_filepath, "w", encoding="utf-8") as f:
             f.write(geometry_gdf.to_json())
     logger.info(f"Saved parcel's geometry to {optional_geojson_filepath}!")
