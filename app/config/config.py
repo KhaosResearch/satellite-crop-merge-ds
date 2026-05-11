@@ -6,9 +6,55 @@ from  config.minio_client import get_src_minio_client
 
 load_dotenv()
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+# --- DIRS & FILES PATH ---
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
 RESULTS_DIR_NAME = "results"
 RESULTS_FULL_PATH = ROOT_DIR / RESULTS_DIR_NAME
+
+ASSETS_DIR = ROOT_DIR / "assets"
+MULTILANGUAGE_FILEPATH = ASSETS_DIR / "multilanguage.csv"
+ANDALUSIA_GEOJSON_FILEPATH = ASSETS_DIR / "andalucia.geojson"
+
+# --- PRODUCT INFO ---
+PRODUCTS_DICT = {
+    "en":{
+        "Atmospheric Aerosols": "AOT",
+        "Satellite Imagery": "images",
+        # "True Color Image": "TCI",
+        "Atmospheric Humidity": "WVP",
+        "Bare Soil": "BareSoil",
+        "Vegetation Senescence": "Senescence ",
+        "Vegetation Productivity": "Vegetation",
+        "Vegetation Water Content": "WaterContent",
+        "Water Masses": "WaterMass",
+        "Vegetation Yellowing": "Yellow",
+        "Land Cover": "LandCover",
+        "Forest Species": "ForestMap",
+        "Terrain Orientation": "aspect",
+        "Terrain Elevation": "elevation",
+        "Terrain Slope": "slope",
+    },
+    "es": {
+        "Aerosoles Atmosféricos": "AOT",
+        "Imágenes de Satélite": "images",
+        # "Imágenes a Color": "TCI",
+        "Humedad Atmosférica": "WVP",
+        "Suelo Desnudo": "BareSoil",
+        "Senescencia Vegetal": "Senescence ",
+        "Productividad Vegetal": "Vegetation",
+        "Contenido hídrico en plantas": "WaterContent",
+        "Masas de aguas": "WaterMass",
+        "Amarillamiento Vegetal": "Yellow",
+        "Cubiertas de Suelo": "LandCover",
+        "Especies Forestales": "ForestMap",
+        "Orientaciones del Terreno": "aspect",
+        "Topografía del Terreno": "elevation",
+        "Pendientes del Terreno": "slope",
+    }
+}
+PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", 
+                    "WaterMass", "Yellow", "aspect", "elevation", "slope", "LandCover", "ForestMap"]
 
 # --- MINIO CREDENTIALS ---
 SOURCE_BUCKET = os.environ.get('MINIO_BUCKET_NAME')
@@ -16,6 +62,9 @@ SOURCE_CLIENT = get_src_minio_client()
 
 ASDATA_CLIENT = get_src_minio_client(os.environ.get('ASDATA_MINIO_ACCESS_KEY'), os.environ.get('ASDATA_MINIO_SECRET_KEY'))
 ASDATA_BUCKET = os.environ.get('ASDATA_MINIO_BUCKET_NAME')
+
+LANDCOVER_CLIENT = get_src_minio_client(os.environ.get('LANDCOVER_MINIO_ACCESS_KEY'), os.environ.get('LANDCOVER_MINIO_SECRET_KEY'))
+LANDCOVER_BUCKET = os.environ.get('LANDCOVER_MINIO_BUCKET_NAME')
 
 SENTINEL2_GRIDS_FILE = os.environ.get('SENTINEL2_GRIDS_FILE')
 
@@ -152,6 +201,9 @@ function() {
 HIDE_MAP_TEXTBOX_CSS = """
 #map_data_input { 
     display: none !important; 
+}
+.disabled-column {
+    opacity: 0.5;
 }
 """
 

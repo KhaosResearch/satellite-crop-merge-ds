@@ -50,7 +50,6 @@ def generate_evalscript(
         req_bands = bands if bands else []
         is_rgb = False
         units = "DN" if index_id == "AOT" else units
-        print("id, units", index_id, units)
     # Sync Input Bands
     input_bands = list(dict.fromkeys(req_bands + (["dataMask"] if mask else [])))
     bands_str = ", ".join([f'"{b}"' for b in input_bands])

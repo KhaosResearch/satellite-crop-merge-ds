@@ -65,6 +65,7 @@ def download_crop_sentinelhub(
     # Save the data, return the ZIP file paths
     saved_files = list(set(saved_files))
     zip_path = save_to_zip(product_key, job_dir, saved_files)
+    print()
     return zip_path
 
 def _crop_monthly_timeseries(
@@ -296,7 +297,8 @@ def _get_sentinelhub_request_params(
     utm_crs = geometry_gdf.estimate_utm_crs()
     utm_gdf = geometry_gdf.to_crs(utm_crs)
     minx, miny, maxx, maxy = utm_gdf.total_bounds
-    logger.debug(f"Geometry Size: {round(maxx - minx, 3)} x {round(maxy - miny, 2)} m")
+    print()
+    logger.debug(f"Geometry Size (m): {round(maxx - minx, 3)} x {round(maxy - miny, 2)} m")
     
     # Get BBox data from geometry
     bbox = BBox(

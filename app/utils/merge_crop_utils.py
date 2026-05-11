@@ -60,7 +60,7 @@ def process_merge_crop(
     """
     
     datasets = []
-    # For TFW-TIF ATER products merging
+    # For TFW-TIF ASTER products merging
     mem_files = [] 
     try:
         # Open all datasets
