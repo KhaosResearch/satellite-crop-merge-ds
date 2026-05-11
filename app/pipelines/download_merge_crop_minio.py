@@ -144,6 +144,14 @@ def get_sentinel_composites_data(
                     resolution_tags = ["10m", "20m", "60m"]
                 for resolution_tag in resolution_tags:
                     local_paths = []
+                    
+                    # Get geometry origin suffix for local filepaths
+                    print(tiles_list)
+                    last_tile_parts = tiles_list[-1].split("_")
+                    if len(last_tile_parts) > 1:
+                        geom_suffix = last_tile_parts.pop()
+                    tiles_list =[tile.split("_")[0] for tile in tiles_list]  # Clear geom suffix just in case
+
                     for tile in tiles_list:
                         # Build MinIO object path
                         minio_obj_filename = f"T{tile}_{year}{month.split("-")[0]}_comp_{resolution_tag}_{file_id}.tif" 
@@ -160,7 +168,7 @@ def get_sentinel_composites_data(
                         local_paths.append(local_file)
 
                     # Process the merge-crop-save process
-                    saved_files = process_merge_crop(local_paths, geometry, job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, resolution_tag, minio_client, minio_bucket)
+                    saved_files = process_merge_crop(local_paths, geometry, job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, f"{geom_suffix}_{resolution_tag}", minio_client, minio_bucket)
 
     return saved_files
 
