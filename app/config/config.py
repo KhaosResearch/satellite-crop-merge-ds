@@ -7,6 +7,8 @@ from  config.minio_client import get_src_minio_client
 load_dotenv()
 
 # --- DIRS & FILES PATH ---
+SCRIPT_NAME = os.getenv("SCRIPT_NAME", default="/")
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
 RESULTS_DIR_NAME = "results"

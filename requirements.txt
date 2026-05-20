@@ -13,6 +13,7 @@ shapely>=2.1.2
 sigpac-tools @ git+https://github.com/KhaosResearch/sigpac-tools.git@dev
 structlog>=25.5.0
 sqlmodel>=0.0.38
+PyMySQL==1.1.3
 
 # Aux dependencies
 aenum==3.1.17
@@ -24,7 +25,6 @@ anyio==4.12.1
 argon2-cffi==25.1.0
 argon2-cffi-bindings==25.1.0
 attrs==25.4.0
-audioop-lts==0.2.2
 branca==0.8.2
 brotli==1.2.0
 certifi==2026.2.25
