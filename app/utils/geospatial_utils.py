@@ -17,11 +17,9 @@ logger = structlog.get_logger()
 def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origin: str=None) -> list[str]:
     """Get the Sentinel-2 tile/tiles the geometry is comprised in. Also, insert the geometry origin on last tiles' ID for filenaming purposes...
     Args:
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
+        geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
     Returns:
-        tile_ids (list[str]):
-            The Setinel-2 Tile's ID list.
+        tile_ids (list[str]): The Setinel-2 Tile's ID list.
     """
     # Get geometry origin suffix for filename
     if geometry_origin.split(".").pop():
@@ -57,10 +55,8 @@ def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origi
         N36W002, S12E045, etc.
 
     Args:
-        geometry_gdf (gpd.GeoDataFrame):
-            Input geometry (any CRS)
-        geometry_origin (str):
-            Used for ASTER TIF file name. Default is `None`.
+        geometry_gdf (gpd.GeoDataFrame): Input geometry (any CRS)
+        geometry_origin (str): Used for ASTER TIF file name. Default is `None`.
 
     Returns:
         list[str]: List of ASTER tile IDs
@@ -98,13 +94,10 @@ def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origi
 def get_year_month_pair(start_date: str, end_date: str) -> list[tuple]:
     """Generates a (`YYYY`, `NN-MMM`) tuple list of the given temporal range.
     Args:
-        start_date (str):
-            The starting date in ISO format (`YYYY-MM-DD`).
-        end_date (str):
-            The finishing date in ISO format (`YYYY-MM-DD`).
+        start_date (str): The starting date in ISO format (`YYYY-MM-DD`).
+        end_date (str): The finishing date in ISO format (`YYYY-MM-DD`).
     Returns:
-        year_months (tuple):
-            The (`YYYY`, `NN-MMM`) tuple list.
+        year_months (tuple): The (`YYYY`, `NN-MMM`) tuple list.
     """
     start = datetime.fromisoformat(start_date)
     end = datetime.fromisoformat(end_date)

@@ -39,19 +39,13 @@ def process_merge_crop(
     """Merges multiple raster datasets into a mosaic, crops them to a specific geometry, saves the result, and cleans up temporary local source files.
 
     Args:
-        local_paths (list):
-            List of strings/Paths to the downloaded temporary .tif files.
-        geometry (dict/GeoJSON):
-            The geometry used to mask/crop the mosaic.
-        job_dir (str):
-            Directory where the final output will be stored.
-        product_key (str):
-            Identifier for the specific satellite product.
-        saved_files (list):
-            Accumulated list of paths to successfully saved files.
+        local_paths (list): List of strings/Paths to the downloaded temporary .tif files.
+        geometry (dict/GeoJSON): The geometry used to mask/crop the mosaic.
+        job_dir (str): Directory where the final output will be stored.
+        product_key (str): Identifier for the specific satellite product.
+        saved_files (list): Accumulated list of paths to successfully saved files.
         product_prefix, subfolder, file_id, year, month, resolution_tag: Metadata strings used for naming the output file.
-        minio_client (Minio):
-            Optional. Client object if uploading directly to MinIO. Default: `SOURCE_CLIENT`
+        minio_client (Minio): Optional. Client object if uploading directly to MinIO. Default: `SOURCE_CLIENT`
         minio_bucket (str): 
             Optional. Target bucket name for MinIO uploads. Default: `SOURCE_BUCKET`
 
@@ -141,11 +135,9 @@ def process_merge_crop(
 def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tuple:
     """Merges all same image data from different tiles into one mosaic.
     Args:
-        datasets (list[rasterio.io.DatasetReader]):
-            The list of datasets associated to the files found.
+        datasets (list[rasterio.io.DatasetReader]): The list of datasets associated to the files found.
     Returns:
-        tuple:
-            The mosaic's data and metadata.
+        tuple: The mosaic's data and metadata.
     """
     try:
         if len(datasets) == 1:
@@ -203,15 +195,11 @@ def _merge_image_data_to_mosaic(datasets: list[rasterio.io.DatasetReader])->tupl
 def crop_mosaic(mosaic: numpy.ndarray, meta: dict, geometry_gdf: gpd.geodataframe)->tuple:
     """Crops the mosaic given the parcel's geometry.
     Args:
-        mosaic (numpy.ndarray):
-            The mosaic data from te merge.
-        meta (dict):
-            The mosaics metadata.
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
+        mosaic (numpy.ndarray): The mosaic data from te merge.
+        meta (dict): The mosaics metadata.
+        geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
     Returns:
-        tuple:
-            The cropped image data and metadata.
+        tuple: The cropped image data and metadata.
         """
     try:    
         logger.info(f"Cropping mosaic...")
