@@ -8,39 +8,35 @@ import geopandas as gpd
 from minio import Minio
 from pathlib import Path
 
+from utils.geospatial_utils import mask_tif_from_minio
 from config.config import ASDATA_BUCKET, ASDATA_CLIENT, PRODUCT_TYPE_FILE_IDS, SOURCE_BUCKET, SOURCE_CLIENT, SPECTRAL_INDICES_DATA
 from utils.merge_crop_utils import process_merge_crop
-from utils.io_utils import _file_exists_in_minio, save_to_zip
+from utils.io_utils import _file_exists_in_minio, save_cropped_data, save_to_zip
 
 logger = structlog.get_logger()
 
 # --- MINIO PIPELINE ---
 
 def download_merge_crop_minio(
-        geometry_gdf: gpd.GeoDataFrame,
-        tiles_list: list[str],
-        year_months: list[tuple],
-        product_key: str,
-        job_dir: Path,
-        minio_client: Minio=SOURCE_CLIENT,
-        minio_bucket: str=SOURCE_BUCKET
-    )-> str:
+    geometry_gdf: gpd.GeoDataFrame,
+    tiles_list: list[str],
+    year_months: list[tuple],
+    product_key: str,
+    job_dir: Path,
+    minio_client: Minio=SOURCE_CLIENT,
+    minio_bucket: str=SOURCE_BUCKET
+)-> str:
     """It iterates over the MinIO database, using the args data to build the paths and download all relevant files.
     After collecting filepaths and data by tile, it merges each into its own mosaic file.
     After merging, it crops the geometry and saves the cropped data locally and to a ZIP file.
 
     Args:
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
-        tiles_list (list[str]):
-            Sentinel-2 tile's ID list.
-        year_months (list[tuple]):
-            List of `("YYYY", "NN-MMM")` tuples.
-        product_key (str):
-            Product ID string.
+        geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
+        tiles_list (list[str]): Sentinel-2 tile's ID list.
+        year_months (list[tuple]): List of `("YYYY", "NN-MMM")` tuples.
+        product_key (str): Product ID string.
     Returns:
-        zip_path (str):
-            The compressed ZIP filepath with all of the product data.
+        zip_path (str): The compressed ZIP filepath with all of the product data.
 
     """
     # Remove old result files
@@ -70,7 +66,7 @@ def download_merge_crop_minio(
             # Download-crop-merge from Sentinel composites data
             product_config = PRODUCT_TYPE_FILE_IDS[product_key]
 
-            saved_files = get_sentinel_composites_data(tiles_list, year_months, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry, product_prefix, product_config, temp_dir)
+            saved_files = get_sentinel_composites_data(tiles_list, year_months, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry_gdf, product_prefix, product_config, temp_dir)
         else:
             match product_key:
                 case "aspect" | "elevation" | "slope":
@@ -78,7 +74,7 @@ def download_merge_crop_minio(
                     saved_files = get_aster_gdem_data(tiles_list, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry, temp_dir)
                 case "LandCover" | "ForestMap":
                     # Download-crop-merge from Land Cover data
-                    saved_files = get_landcover_forestmap_data(tiles_list, product_key, job_dir, minio_client, minio_bucket, saved_files, geometry, temp_dir)
+                    saved_files = get_landcover_forestmap_data(tiles_list, product_key, job_dir, minio_client, saved_files, geometry, temp_dir, minio_bucket)
 
         zip_path = save_to_zip(product_key, job_dir, saved_files)
 
@@ -89,120 +85,200 @@ def download_merge_crop_minio(
     finally:
         shutil.rmtree(temp_dir)
 
-def get_sentinel_composites_data(
-        tiles_list: list[str],
-        year_months: list[tuple],
-        product_key: str,
-        job_dir: str,
-        minio_client: Minio,
-        minio_bucket: str,
-        saved_files: list[str],
-        geometry: gpd.GeoDataFrame,
-        product_prefix: str,
-        product_config: dict,
-        temp_dir: str
-    )-> list[str]:
-    """It iterates over the `sentinel-composites` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data.
-    Args:
-        tiles_list (list[str]):
-            Sentinel-2 tile's ID list.
-        year_months (list[tuple]):
-            List of `("YYYY", "NN-MMM")` tuples.
-        product_key (str):
-            Product ID string.
-        job_dir (str):
-            The Job directory where the cropped files will be saved before being compressed in a ZIP file.
-        minio_client (Minio):
-            The MinIO client with access to the bucket.
-        minio_bucket (str):
-            The MinIO bucket name.
-        saved_files (list[str]):
-            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
-        geometry (gpd.GeoDataFrame):
-            The parcel's geometry.
-        product_prefix (str):
-            First part of the MinIO prefix for the bucket.
-        product_config (dict):
-            The dictionary with the product configuration in terms of which files are associated to each product key and their respective subfolders.
-        temp_dir (str):
-            Temporary directory to save the downloaded files from MinIO before merging and cropping.
-    Returns:
-        saved_files (list[str]):
-            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
-    """
-    for subfolder, file_ids in product_config.items():
-        subfolder = f"R{subfolder}" if len(subfolder) > 0 else subfolder
-        for year, month in year_months:
-            for file_id in file_ids:
-                logger.info(f"Accessing {file_id.upper()} data from {year} {month}...")
-                    # Build MinIO filepath
-                if product_key == "images":  # For Image bands
-                    resolution_tags = [str(subfolder)[1:]] 
-                elif "indices" in product_prefix:  # For spectral index
-                    resolution_tags = [f"{SPECTRAL_INDICES_DATA.get(file_id).get("resolution")}m"]
-                else:
-                    resolution_tags = ["10m", "20m", "60m"]
-                for resolution_tag in resolution_tags:
-                    local_paths = []
+# DEPRECATED
+# def get_sentinel_composites_data(
+#         tiles_list: list[str],
+#         year_months: list[tuple],
+#         product_key: str,
+#         job_dir: str,
+#         minio_client: Minio,
+#         minio_bucket: str,
+#         saved_files: list[str],
+#         geometry: gpd.GeoDataFrame,
+#         product_prefix: str,
+#         product_config: dict,
+#         temp_dir: str
+#     )-> list[str]:
+#     """It iterates over the `sentinel-composites` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data.
+#     Args:
+#         tiles_list (list[str]): Sentinel-2 tile's ID list.
+#         year_months (list[tuple]): List of `("YYYY", "NN-MMM")` tuples.
+#         product_key (str): Product ID string.
+#         job_dir (str): The Job directory where the cropped files will be saved before being compressed in a ZIP file.
+#         minio_client (Minio): The MinIO client with access to the bucket.
+#         minio_bucket (str): The MinIO bucket name.
+#         saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+#         geometry (gpd.GeoDataFrame): The parcel's geometry.
+#         product_prefix (str): First part of the MinIO prefix for the bucket.
+#         product_config (dict): The dictionary with the product configuration in terms of which files are associated to each product key and their respective subfolders.
+#         temp_dir (str): Temporary directory to save the downloaded files from MinIO before merging and cropping.
+#     Returns:
+#         saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+#     """
+#     for subfolder, file_ids in product_config.items():
+#         subfolder = f"R{subfolder}" if len(subfolder) > 0 else subfolder
+#         for year, month in year_months:
+#             for file_id in file_ids:
+#                 logger.info(f"Accessing {file_id.upper()} data from {year} {month}...")
+#                     # Build MinIO filepath
+#                 if product_key == "images":  # For Image bands
+#                     resolution_tags = [str(subfolder)[1:]] 
+#                 elif "indices" in product_prefix:  # For spectral index
+#                     resolution_tags = [f"{SPECTRAL_INDICES_DATA.get(file_id).get("resolution")}m"]
+#                 else:
+#                     resolution_tags = ["10m", "20m", "60m"]
+#                 for resolution_tag in resolution_tags:
+#                     local_paths = []
                     
-                    # Get geometry origin suffix for local filepaths
-                    print(tiles_list)
-                    last_tile_parts = tiles_list[-1].split("_")
-                    if len(last_tile_parts) > 1:
-                        geom_suffix = last_tile_parts.pop()
-                    tiles_list =[tile.split("_")[0] for tile in tiles_list]  # Clear geom suffix just in case
+#                     # Get geometry origin suffix for local filepaths
+#                     print(tiles_list)
+#                     last_tile_parts = tiles_list[-1].split("_")
+#                     if len(last_tile_parts) > 1:
+#                         geom_suffix = last_tile_parts.pop()
+#                     tiles_list =[tile.split("_")[0] for tile in tiles_list]  # Clear geom suffix just in case
 
-                    for tile in tiles_list:
-                        # Build MinIO object path
-                        minio_obj_filename = f"T{tile}_{year}{month.split("-")[0]}_comp_{resolution_tag}_{file_id}.tif" 
-                        minio_obj_path = os.path.join(product_prefix, tile, year, month, subfolder, minio_obj_filename)
+#                     for tile in tiles_list:
+#                         # Build MinIO object path
+#                         minio_obj_filename = f"T{tile}_{year}{month.split("-")[0]}_comp_{resolution_tag}_{file_id}.tif" 
+#                         minio_obj_path = os.path.join(product_prefix, tile, year, month, subfolder, minio_obj_filename)
                             
-                        # Check if object exists database
-                        if not _file_exists_in_minio(minio_obj_path, minio_client, minio_bucket):
-                            logger.warning(f"Object does not exist! Skipping {minio_obj_path}")
-                            continue
+#                         # Check if object exists database
+#                         if not _file_exists_in_minio(minio_obj_path, minio_client, minio_bucket):
+#                             logger.warning(f"Object does not exist! Skipping {minio_obj_path}")
+#                             continue
                             
+#                         # Get the specific object in the MinIO
+#                         local_file = os.path.join(temp_dir, f"{tile}_{file_id}.tif")
+#                         minio_client.fget_object(minio_bucket, minio_obj_path, local_file)
+#                         local_paths.append(local_file)
+
+#                     # Process the merge-crop-save process
+#                     saved_files = process_merge_crop(local_paths, geometry, job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, f"{geom_suffix}_{resolution_tag}", minio_client, minio_bucket)
+
+#     return saved_files
+
+def get_sentinel_composites_data(
+    tiles_list: list[str],
+    year_months: list[tuple],
+    product_key: str,
+    job_dir: str,
+    minio_client: Minio,
+    minio_bucket: str,
+    saved_files: list[str],
+    geometry: gpd.GeoDataFrame,
+    product_prefix: str,
+    product_config: dict,
+    temp_dir: str
+)-> list[str]:
+    """It iterates over the `andalucia-products` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data.
+    Args:
+        tiles_list (list[str]): Sentinel-2 tile's ID list.
+        year_months (list[tuple]): List of `("YYYY", "NN-MMM")` tuples.
+        product_key (str): Product ID string.
+        job_dir (str): The Job directory where the cropped files will be saved before being compressed in a ZIP file.
+        minio_client (Minio): The MinIO client with access to the bucket.
+        minio_bucket (str): The MinIO bucket name.
+        saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+        geometry (gpd.GeoDataFrame): The parcel's geometry.
+        product_prefix (str): First part of the MinIO prefix for the bucket.
+        product_config (dict): The dictionary with the product configuration in terms of which files are associated to each product key and their respective subfolders.
+        temp_dir (str): Temporary directory to save the downloaded files from MinIO before merging and cropping.
+    Returns:
+        saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+    """
+    logger.debug(f"Retrieving data from {minio_bucket} MinIO bucket.")
+    
+    MONTH_FORMATTER = {
+        "01-Jan": "January",
+        "02-Feb": "February",
+        "03-Mar": "March",
+        "04-Apr": "April",
+        "05-May": "May",
+        "06-Jun": "June",
+        "07-Jul": "July",
+        "08-Aug": "August",
+        "09-Sep": "September",
+        "10-Oct": "October",
+        "11-Nov": "November",
+        "12-Dec": "December",
+    }
+    
+    RAW_PRODUCTS = {"images", "AOT", "WVP", "TCI"}
+    
+    subdir = "raw" if product_key in RAW_PRODUCTS else "indexes"
+
+    products = PRODUCT_TYPE_FILE_IDS[product_key]["60m"] if product_key == "images" else PRODUCT_TYPE_FILE_IDS[product_key][""]
+
+    for tile in tiles_list:
+        tile = tile.split("_")[0]
+        for year, month in year_months:
+            formatted_month = MONTH_FORMATTER[month]  # Switch to andalucia-products month format
+            minio_prefix = os.path.join(tile, year, formatted_month, "composites","")
+            
+            logger.debug(f"BUCKET {minio_bucket}")
+            logger.debug(f"Exploring directory:")
+            logger.debug(f" ---- {minio_prefix}")
+            
+            objects = minio_client.list_objects(
+                bucket_name=minio_bucket,
+                prefix=minio_prefix,
+                recursive=True
+            )
+            for obj in objects:
+                if subdir not in obj.object_name:
+                    continue
+                for product in products:
+                    if product in obj.object_name:
+                        logger.debug(f"Downloading {os.path.basename(obj.object_name)}...")
                         # Get the specific object in the MinIO
-                        local_file = os.path.join(temp_dir, f"{tile}_{file_id}.tif")
-                        minio_client.fget_object(minio_bucket, minio_obj_path, local_file)
-                        local_paths.append(local_file)
+                        local_file = os.path.join(temp_dir, f"{tile}_{product}.tif")
 
-                    # Process the merge-crop-save process
-                    saved_files = process_merge_crop(local_paths, geometry, job_dir, product_key, saved_files, product_prefix, subfolder, file_id, year, month, f"{geom_suffix}_{resolution_tag}", minio_client, minio_bucket)
-
+                        out_image, out_meta = mask_tif_from_minio(
+                            minio_client=minio_client,
+                            bucket_name=minio_bucket,
+                            object_name=obj.object_name,
+                            geometry=geometry,
+                            output_path=Path(local_file),
+                        )
+                        if subdir == "raw":
+                            resolution_tag = os.path.basename(obj.object_name).split("_").pop().split(".")[0]  #ie: "20m"
+                            subfolder = str(resolution_tag) if product_key == "images" else ""
+                        else:
+                            resolution_tag  = str(SPECTRAL_INDICES_DATA.get(product, "").get("resolution", ""))+"m"
+                            subfolder = ""
+                        logger.debug(f"INFO: {subfolder, resolution_tag}")
+                        saved_files = save_cropped_data(
+                            job_dir, product_key, saved_files, product_prefix, subfolder, 
+                            product, year, month, resolution_tag, out_image, out_meta, 
+                            minio_client, minio_bucket
+                        )
+                    else:
+                        logger.debug(f"Skipping: {os.path.basename(obj.object_name)}")
+                        continue
     return saved_files
 
 def get_aster_gdem_data(
-        tiles_list: list[str],
-        product_key: str,
-        job_dir: str,
-        minio_client: Minio,
-        minio_bucket: str,
-        saved_files: list[str],
-        geometry: gpd.GeoDataFrame,
-        temp_dir: str
-    )-> list[str]:
+    tiles_list: list[str],
+    product_key: str,
+    job_dir: str,
+    minio_client: Minio,
+    minio_bucket: str,
+    saved_files: list[str],
+    geometry: gpd.GeoDataFrame,
+    temp_dir: str
+)-> list[str]:
     """It iterates over the `aster-gdem-data` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data.
     Args:
-        tiles_list (list[str]):
-            Sentinel-2 tile's ID list.
-        product_key (str):
-            Product ID string.
-        job_dir (str):
-            The Job directory where the cropped files will be saved before being compressed in a ZIP file.
-        minio_client (Minio):
-            The MinIO client with access to the bucket.
-        minio_bucket (str):
-            The MinIO bucket name.
-        saved_files (list[str]):
-            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
-        geometry (gpd.GeoDataFrame):
-            The parcel's geometry.
-        temp_dir (str):
-            Temporary directory to save the downloaded files from MinIO before merging and cropping.
+        tiles_list (list[str]): Sentinel-2 tile's ID list.
+        product_key (str): Product ID string.
+        job_dir (str): The Job directory where the cropped files will be saved before being compressed in a ZIP file.
+        minio_client (Minio): The MinIO client with access to the bucket.
+        minio_bucket (str): The MinIO bucket name.
+        saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+        geometry (gpd.GeoDataFrame): The parcel's geometry.
+        temp_dir (str): Temporary directory to save the downloaded files from MinIO before merging and cropping.
     Returns:
-        saved_files (list[str]):
-            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+        saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
     """
     logger.info(f"Acessing ASTER GDEM data...")
     # Set the filename pattern for Aster GDEM products
@@ -229,37 +305,31 @@ def get_aster_gdem_data(
     return saved_files
 
 def get_landcover_forestmap_data(
-        tiles_list: list[str],
-        product_key: str,
-        job_dir: str,
-        minio_client: Minio,
-        minio_bucket: str,
-        saved_files: list[str],
-        geometry: gpd.GeoDataFrame,
-        temp_dir: str
-    )-> list[str]:
-    """It iterates over the `sentinel2-composites` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data (`LandCover` or `ForestMap`).
-    Args:
-        tiles_list (list[str]):
-            Sentinel-2 tile's ID list.
-        product_key (str):
-            Product ID string.
-        job_dir (str):
-            The Job directory where the cropped files will be saved before being compressed in a ZIP file.
-        minio_client (Minio):
-            The MinIO client with access to the bucket.
-        minio_bucket (str):
-            The MinIO bucket name.
-        saved_files (list[str]):
-            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
-        geometry (gpd.GeoDataFrame):
-            The parcel's geometry.
-        temp_dir (str):
-            Temporary directory to save the downloaded files from MinIO before merging and cropping.
-    Returns:
-        saved_files (list[str]):
-            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+    tiles_list: list[str],
+    product_key: str,
+    job_dir: str,
+    minio_client: Minio,
+    saved_files: list[str],
+    geometry: gpd.GeoDataFrame,
+    temp_dir: str,
+    minio_bucket: str="sentinel2-composites",  # Switch to sentinel2-composites bucket for Landcover/ForestMap data access
+)-> list[str]:
     """
+    It iterates over the `sentinel2-composites` MinIO bucket and performs the retrieval, merge (when needed) and crop operations for the requested product type data (`LandCover` or `ForestMap`).
+    Args:
+        tiles_list (list[str]): Sentinel-2 tile's ID list.
+        product_key (str): Product ID string.
+        job_dir (str): The Job directory where the cropped files will be saved before being compressed in a ZIP file.
+        minio_client (Minio): The MinIO client with access to the bucket.
+        minio_bucket (str): The MinIO bucket name.
+        saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+        geometry (gpd.GeoDataFrame): The parcel's geometry.
+        temp_dir (str): Temporary directory to save the downloaded files from MinIO before merging and cropping.
+    Returns:
+        saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+    """
+    minio_bucket = "sentinel2-composites"
+
     logger.info(f"Acessing {product_key.upper()} data...")
     
     local_paths = []
@@ -270,12 +340,13 @@ def get_landcover_forestmap_data(
 
         year = "2021"  # Only year for LC and FM data
         # Get geometry origin suffix for local filepaths
-        print(tiles_list)
         last_tile_parts = tiles_list[-1].split("_")
+        geom_suffix = ""
         if len(last_tile_parts) > 1:
             geom_suffix = last_tile_parts.pop()
         tiles_list =[tile.split("_")[0] for tile in tiles_list]  # Clear geom suffix just in case
-        
+        tile = tile.split("_")[0]
+
         # Get MinIO dir via prefix
         object_prefix = os.path.join(product_key, tile, year)
         minio_files_list = minio_client.list_objects(minio_bucket, prefix=object_prefix, recursive=True)
@@ -291,6 +362,7 @@ def get_landcover_forestmap_data(
                 output_filepath = os.path.join(temp_dir, os.path.basename(obj.object_name))
                 local_paths.append(output_filepath)  # Add the .tif to be merged and cropped
             else:
+                logger.debug(f"Skipping: {os.path.basename(obj.object_name)}")
                 continue
             minio_client.fget_object(minio_bucket, obj.object_name, output_filepath)
 
