@@ -121,7 +121,7 @@ def _save_readme(
     product_key: str,
     saved_files: list[str],
     minio_client: Minio=SOURCE_CLIENT,
-    minio_bucket: str=SOURCE_BUCKET
+    minio_bucket: str="sentinel2-composites",  # Switch to sentinel2-composites bucket for Landcover/ForestMap data access
 )->list[str]:
     """It specifically downloads and saves the selected product type readme from MinIO.
     Args:
@@ -133,6 +133,8 @@ def _save_readme(
     Returns:
         saved_files (list[str]): List of saved files associated to the product.
     """
+    minio_bucket = "sentinel2-composites"
+    
     minio_path = os.path.join(product_prefix, f"README_{product_key}_v2.pdf")
     readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client, minio_bucket)
     
