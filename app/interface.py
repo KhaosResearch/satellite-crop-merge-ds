@@ -170,7 +170,7 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
 
             # Get geometry based on input priority
             geometry_gdf, geometry_origin = _get_geometry_gdf(geometry_selection, file, sigpac_reference, map_data)
-            
+
             start_date = str(datetime.fromtimestamp(start_date, tz=timezone.utc)).split(" ")[0]
             end_date = str(datetime.fromtimestamp(end_date, tz=timezone.utc)).split(" ")[0]
             src = data_source
@@ -339,3 +339,11 @@ with gr.Blocks(title="EDAAn Geo-Downloader") as interface:
     
 if __name__ == "__main__":
     interface.launch(theme="gradio/monochrome", head=JS_RECIEVER, css=HIDE_MAP_TEXTBOX_CSS, auth=lambda u, p: True)
+    
+    # from types import SimpleNamespace
+    # process_request("es", "Suelo Desnudo", "GeoJSON", "../misc/geometry.geojson", None, "" , 1735689600.0, 1738281600.0, SimpleNamespace(username="1234-lol"))
+    # process_request("es", "Imágenes de Satélite", "GeoJSON", "../misc/geometry.geojson", None, "" , 1735689600.0, 1738281600.0, SimpleNamespace(username="1234-lol"))
+    # process_request("es", "Aerosoles Atmosféricos", "GeoJSON", "../misc/geometry.geojson", None, "" , 1735689600.0, 1738281600.0, SimpleNamespace(username="1234-lol"))
+    # process_request("es", "Masas de aguas", "GeoJSON", "../misc/geometry.geojson", None, "" , 1735689600.0, 1738281600.0, SimpleNamespace(username="1234-lol"))
+    # process_request("es", "Orientaciones del Terreno", "GeoJSON", "../misc/geometry.geojson", None, "" , 1735689600.0, 1738281600.0, SimpleNamespace(username="1234-lol"))
+    # process_request("es", "Cubiertas de Suelo", "GeoJSON", "../misc/geometry.geojson", None, "" , 1735689600.0, 1738281600.0, SimpleNamespace(username="1234-lol"))

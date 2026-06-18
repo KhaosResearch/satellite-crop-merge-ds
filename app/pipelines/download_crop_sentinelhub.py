@@ -31,17 +31,12 @@ def download_crop_sentinelhub(
     ) -> str:
     """Downloads, merges and crops Sentinel-2 data for the specified geometry and temporal range.
     Args:
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
-        start_date (str):
-            The starting date in ISO format (`YYYY-MM-DD`).
-        end_date (str):
-            The finishing date in ISO format (`YYYY-MM-DD`).
-        product_key (str):
-            The ID of the product.
+        geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
+        start_date (str): The starting date in ISO format (`YYYY-MM-DD`).
+        end_date (str): The finishing date in ISO format (`YYYY-MM-DD`).
+        product_key (str): The ID of the product.
     Returns:
-        zip_path (str):
-            The compressed ZIP filepath with all of the product data.
+        zip_path (str): The compressed ZIP filepath with all of the product data.
     """
     # Get product-specific bands and evalscript
     saved_files = []
@@ -80,23 +75,15 @@ def _crop_monthly_timeseries(
         )->list[str]:
     """Creates and crops monthly composites of the specified product over the given geometry and returns an organize list of filepaths to compress.
     Args:
-        product_key (str):
-            The ID of the product.
-        id (str):
-            The spectral index ID or product key (it depends on whether product was index-related or not respectively).
-        res (int):
-            Band resolution in m/px.
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
-        total_start_date (str):
-            The starting date in ISO format (`YYYY-MM-DD`).
-        total_end_date (str):
-            The finishing date in ISO format (`YYYY-MM-DD`).
-        job_dir (str):
-            The Job directory where the cropped files will be saved before being compressed in a ZIP file.
+        product_key (str): The ID of the product.
+        id (str): The spectral index ID or product key (it depends on whether product was index-related or not respectively).
+        res (int): Band resolution in m/px.
+        geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
+        total_start_date (str): The starting date in ISO format (`YYYY-MM-DD`).
+        total_end_date (str): The finishing date in ISO format (`YYYY-MM-DD`).
+        job_dir (str): The Job directory where the cropped files will be saved before being compressed in a ZIP file.
     Returns:
-        saved_files (list[str]):
-            List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
+        saved_files (list[str]): List of saved files associated to the product. It is updated along the process and used to create the ZIP file at the end.
     """
     current_start = datetime.strptime(total_start_date, "%Y-%m-%d")
     final_end = datetime.strptime(total_end_date, "%Y-%m-%d")
@@ -219,23 +206,15 @@ def _get_sentinelhub_bands_data(
     ):
     """Get Sentinel-2 band data via `SentinelHubRequest`.
     Args:
-        id (str):
-            Product key or spectral index ID.
-        bands (list[str]):
-            Band identifiers list (i.e `["B02", "B03", "B04", "B08"]`).
-        res (int):
-            Band resolution in m/px.
-        geometry_gdf (gpd.GeoDataFrame):
-            Geometry GeoDataFrame of the parcel.
-        start_date (str):
-            Initial date for time range.
-        end_date (str):
-            Final date for time range.
-        max_cloud_concentration (float):
-            Maximum cloud concentration allowed on band data.
+        id (str): Product key or spectral index ID.
+        bands (list[str]): Band identifiers list (i.e `["B02", "B03", "B04", "B08"]`).
+        res (int): Band resolution in m/px.
+        geometry_gdf (gpd.GeoDataFrame): Geometry GeoDataFrame of the parcel.
+        start_date (str): Initial date for time range.
+        end_date (str): Final date for time range.
+        max_cloud_concentration (float): Maximum cloud concentration allowed on band data.
     Returns:
-        data (list):
-            Returns `data = [array(... shape=(width_px, height_px, total_num_bands), dtype=uint8)]`.
+        data (list): Returns `data = [array(... shape=(width_px, height_px, total_num_bands), dtype=uint8)]`.
             Band data is presented in the same order as in the `bands` arg. To access a specific band, use `band_data = data[0][:, :, band_index]`
     """
     # Get request parameters

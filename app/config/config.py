@@ -55,6 +55,7 @@ PRODUCTS_DICT = {
         "Pendientes del Terreno": "slope",
     }
 }
+
 PRODUCT_KEY_LIST = ["AOT", "images", "TCI", "WVP", "BareSoil", "Senescence", "Vegetation", "WaterContent", 
                     "WaterMass", "Yellow", "aspect", "elevation", "slope", "LandCover", "ForestMap"]
 

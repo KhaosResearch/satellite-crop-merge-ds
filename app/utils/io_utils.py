@@ -36,33 +36,20 @@ def save_cropped_data(
     It uses the arguments to mimic the MinIO dir structure on local.
     Filename order is `product_key, year_month, "comp", resolution_tag, file_id .tif'` separated by `"_"` (except for ASTER products and LandCover/ForestMap).
     Args:
-        product_key (str):
-            The ID of the product.
-        saved_files (list[str]):
-            List of saved files associated to the product.
-        product_prefix (str):
-            First part of the MinIO prefix for the bucket.
-        subfolder (str):
-            Subfolder inside the prefix.
-        file_id (str):
-            The identifier to find the specific file/files. Usually, band/index name.
-        year (str):
-            Year `YYYY` string.
-        resolution_tag (str):
-            Resolution tag for the filename.
-        month (str):
-            Months `NN-MMM` string.
-        out_image (numpy.ndarray):
-            Cropped image data.
-        out_meta (dict):
-            Cropped image metadata.
-        minio_client (Minio):
-            The MinIO client with access to the bucket. Only needed if `saved_files` has not got the README.
-        minio_bucket (str):
-            The name of the MinIO bucket.
+        product_key (str): The ID of the product.
+        saved_files (list[str]): List of saved files associated to the product.
+        product_prefix (str): First part of the MinIO prefix for the bucket.
+        subfolder (str): Subfolder inside the prefix.
+        file_id (str): The identifier to find the specific file/files. Usually, band/index name.
+        year (str): Year `YYYY` string.
+        resolution_tag (str): Resolution tag for the filename.
+        month (str): Months `NN-MMM` string.
+        out_image (numpy.ndarray): Cropped image data.
+        out_meta (dict): Cropped image metadata.
+        minio_client (Minio): The MinIO client with access to the bucket. Only needed if `saved_files` has not got the README.
+        minio_bucket (str): The name of the MinIO bucket.
     Returns:
-        saved_files (list[str]):
-            List of saved files associated to the product.
+        saved_files (list[str]): List of saved files associated to the product.
 """
     try:
         year_month = f'{year}{month.split("-")[0]}'
@@ -134,24 +121,20 @@ def _save_readme(
     product_key: str,
     saved_files: list[str],
     minio_client: Minio=SOURCE_CLIENT,
-    minio_bucket: str=SOURCE_BUCKET
+    minio_bucket: str="sentinel2-composites",  # Switch to sentinel2-composites bucket for Landcover/ForestMap data access
 )->list[str]:
     """It specifically downloads and saves the selected product type readme from MinIO.
     Args:
-        product_prefix (str):
-            First part of the MinIO prefix for the bucket.
-        product_key (str):
-            The ID of the product.
-        saved_files (list[str]):
-            List of saved files associated to the product.
-        minio_client (Minio):
-            The MinIO client with access to the bucket.
-        minio_bucket (str):
-            The name of the MinIO bucket.
+        product_prefix (str): First part of the MinIO prefix for the bucket.
+        product_key (str): The ID of the product.
+        saved_files (list[str]): List of saved files associated to the product.
+        minio_client (Minio): The MinIO client with access to the bucket.
+        minio_bucket (str): The name of the MinIO bucket.
     Returns:
-        saved_files (list[str]):
-            List of saved files associated to the product.
+        saved_files (list[str]): List of saved files associated to the product.
     """
+    minio_bucket = "sentinel2-composites"
+    
     minio_path = os.path.join(product_prefix, f"README_{product_key}_v2.pdf")
     readme_exists_in_minio = _file_exists_in_minio(minio_path, minio_client, minio_bucket)
     

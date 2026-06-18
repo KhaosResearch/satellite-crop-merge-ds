@@ -26,23 +26,15 @@ def get_product_for_parcel(
     ) -> str:
     """Retrieve the specified product type for the given geometry and temporal range as a compressed ZIP file.
     Args:
-        src (str):
-            The ID of data source.
-        product_key (str):
-            The ID of the product.
-        geometry_gdf (gpd.GeoDataFrame):
-            The parcel's geometry.
-        start_date (str):
-            The starting date in ISO format (`YYYY-MM-DD`).
-        end_date (str):
-            The finishing date in ISO format (`YYYY-MM-DD`).
-        user (str):
-            Username. For data isolation.
-        geometry_origin (str):
-            Used for ASTER TIF file name. Default is `None`.
+        src (str): The ID of data source.
+        product_key (str): The ID of the product.
+        geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
+        start_date (str): The starting date in ISO format (`YYYY-MM-DD`).
+        end_date (str): The finishing date in ISO format (`YYYY-MM-DD`).
+        user (str): Username. For data isolation.
+        geometry_origin (str): Used for ASTER TIF file name. Default is `None`.
     Returns:
-        zip_path (str):
-            The compressed ZIP filepath with all of the product data.
+        zip_path (str): The compressed ZIP filepath with all of the product data.
     """
     # Create process data Job Directory
     job_dir = create_job_dir(RESULTS_FULL_PATH, user)
@@ -52,7 +44,7 @@ def get_product_for_parcel(
     logger.info(f"--- STARTING DOWNLOAD-MERGE-CROP PROCESS ---\n\n")
     
     if src == "minio":
-        all_minio_keys = all_minio_keys = list(PRODUCT_TYPE_FILE_IDS.keys()) + ["LandCover", "ForestMap"]
+        all_minio_keys = list(PRODUCT_TYPE_FILE_IDS.keys()) + ["LandCover", "ForestMap"]
         if product_key in ["aspect", "elevation", "slope"]:
             minio_client = ASDATA_CLIENT
             minio_bucket = ASDATA_BUCKET
@@ -66,7 +58,7 @@ def get_product_for_parcel(
             minio_bucket = SOURCE_BUCKET
             tiles = get_sentinel_tiles_from_geometry(geometry_gdf, geometry_origin)
 
-        logger.debug(f"Tiles:\n{[tile.split("_")[0] for tile in tiles]}")
+        logger.debug(f"Tiles:{[tile.split("_")[0] for tile in tiles]}")
         dates = get_year_month_pair(start_date, end_date)
         logger.debug(dates)
     
