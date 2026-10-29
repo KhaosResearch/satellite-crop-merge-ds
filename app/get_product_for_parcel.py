@@ -87,8 +87,9 @@ def get_product_for_parcel(
     geometry_origin = os.path.splitext(os.path.basename(geometry_origin))[0]
     optional_geojson_filename = "geometry.geojson" if geometry_origin == "geometry" else f"{geometry_origin}_geometry.geojson"
     optional_geojson_filepath = os.path.join(job_dir, optional_geojson_filename)
-    with open(optional_geojson_filepath, "w", encoding="utf-8") as f:
-            f.write(geometry_gdf.to_json())
+    geometry_gdf.to_file(optional_geojson_filepath, driver="GeoJSON")
+    # with open(optional_geojson_filepath, "w", encoding="utf-8") as f:
+    #         f.write(geometry_gdf.to_json())
     logger.info(f"Saved parcel's geometry to {optional_geojson_filepath}!")
     print()
     logger.info(f"--- TRANSFERENCE TIME FOR '{product_key.upper()}': {datetime.now() - init} ---\n")
@@ -106,4 +107,4 @@ if __name__ == "__main__":
     # for product_key in ["slope", "elevation", "aspect"]:  # UNCOMMENT TO TEST ASTER PRODUCTS
     #     src = "minio"
     #     get_product_for_parcel(src, product_key, geometry_gdf, start_date, end_date, user)
-    get_product_for_parcel(src, product_key, geometry_gdf, start_date, end_date, user)
+    get_product_for_parcel(src, product_key, geometry_gdf, start_date, end_date, user, geometry_origin="geometry")

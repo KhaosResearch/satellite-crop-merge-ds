@@ -143,8 +143,8 @@ print("SCRIPT_NAME", SCRIPT_NAME)
 app = gr.mount_gradio_app(
     app,
     interface,
-    path="",
-    root_path=SCRIPT_NAME,
+    path="/",
+    # root_path=SCRIPT_NAME,
     auth=authenticate_user,
     theme="gradio/monochrome",
     head=JS_RECIEVER,
