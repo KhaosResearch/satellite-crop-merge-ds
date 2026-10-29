@@ -12,7 +12,7 @@ import gradio as gr
 
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.security import APIKeyQuery
 from passlib.context import CryptContext
 from pathlib import Path
@@ -69,6 +69,9 @@ app = FastAPI(title="Satellite Crop and Merge Downloader API",
               lifespan=lifespan,
               )
 
+router_prefix = SCRIPT_NAME.rstrip("/") if SCRIPT_NAME and SCRIPT_NAME != "/" else ""
+router = APIRouter(prefix=router_prefix)
+
 x_api_key = os.getenv("API_KEY", default="Cr0p4ndM3rg3S3rv1c3")
 query_scheme = APIKeyQuery(name="x_api_key")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -109,7 +112,7 @@ def start_cleanup(base_dir=Path(RESULTS_FULL_PATH)):
     thread.start()
 
 
-@app.get("/json", response_model=dict)
+@router.get("/json", response_model=dict)
 def new_user(
     request: Request, 
     api_key: str = Depends(query_scheme),
@@ -135,16 +138,13 @@ def new_user(
     data["embed"] = url
 
     return data
-print("SCRIPT_NAME", SCRIPT_NAME)
-print("type", type(SCRIPT_NAME))
-# SCRIPT_NAME = str(SCRIPT_NAME)
-print("SCRIPT_NAME", SCRIPT_NAME)
+
+app.include_router(router)
 
 app = gr.mount_gradio_app(
     app,
     interface,
-    path="",
-    root_path=SCRIPT_NAME,
+    path="/",
     auth=authenticate_user,
     theme="gradio/monochrome",
     head=JS_RECIEVER,

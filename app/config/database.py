@@ -15,6 +15,7 @@ app_user = os.getenv("DB_USER")
 app_password = os.getenv("DB_APP_PASSWORD")
 
 mariadb_url = f"mysql+pymysql://{app_user}:{app_password}@{db_host}:3306/{app_db_name}"
+
 engine = create_engine(mariadb_url, echo=True)
 
 def provision_database_and_user():
