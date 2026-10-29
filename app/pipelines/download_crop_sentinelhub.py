@@ -12,7 +12,11 @@ from dateutil.relativedelta import relativedelta
 from sentinelhub.constants import MimeType
 from sentinelhub.data_collections import DataCollection
 
-from config.config import PRODUCT_TYPE_FILE_IDS, SPECTRAL_INDICES_DATA, SENTINELHUB_CONFIG
+from config.config import (
+    PRODUCT_TYPE_FILE_IDS,
+    SPECTRAL_INDICES_DATA,
+    SENTINELHUB_CONFIG,
+)
 from utils.geospatial_utils import get_year_month_pair
 from utils.io_utils import save_cropped_data, save_to_zip
 from utils.merge_crop_utils import crop_mosaic
@@ -22,13 +26,14 @@ logger = structlog.get_logger()
 
 # --- SENTINELHUB PIPELINE ---
 
+
 def download_crop_sentinelhub(
-        geometry_gdf: gpd.GeoDataFrame,
-        start_date: str,
-        end_date: str,
-        product_key: str,
-        job_dir: str
-    ) -> str:
+    geometry_gdf: gpd.GeoDataFrame,
+    start_date: str,
+    end_date: str,
+    product_key: str,
+    job_dir: str,
+) -> str:
     """Downloads, merges and crops Sentinel-2 data for the specified geometry and temporal range.
     Args:
         geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
@@ -46,16 +51,43 @@ def download_crop_sentinelhub(
         for res in [10, 20, 60]:
             subkey = f"{res}m" if product_key == "images" else ""
             bands = PRODUCT_TYPE_FILE_IDS.get(product_key, None).get(subkey, None)
-            saved_files.extend(_crop_monthly_timeseries(product_key, product_key, bands, res, geometry_gdf, start_date, end_date, job_dir))
+            saved_files.extend(
+                _crop_monthly_timeseries(
+                    product_key,
+                    product_key,
+                    bands,
+                    res,
+                    geometry_gdf,
+                    start_date,
+                    end_date,
+                    job_dir,
+                )
+            )
     else:
         # Retrieve bands for all spectral indices
         subkey = ""
-        spectral_indices = PRODUCT_TYPE_FILE_IDS.get(product_key, None).get(subkey, None)
+        spectral_indices = PRODUCT_TYPE_FILE_IDS.get(product_key, None).get(
+            subkey, None
+        )
         for index in spectral_indices:
-            bands, res = SPECTRAL_INDICES_DATA.get(index, None).get("bands", None), SPECTRAL_INDICES_DATA.get(index, None).get("resolution", None)
+            bands, res = (
+                SPECTRAL_INDICES_DATA.get(index, None).get("bands", None),
+                SPECTRAL_INDICES_DATA.get(index, None).get("resolution", None),
+            )
             if bands and res:
                 #  Get composed spectral indices
-                saved_files.extend(_crop_monthly_timeseries(product_key, index, bands, res, geometry_gdf, start_date, end_date, job_dir))
+                saved_files.extend(
+                    _crop_monthly_timeseries(
+                        product_key,
+                        index,
+                        bands,
+                        res,
+                        geometry_gdf,
+                        start_date,
+                        end_date,
+                        job_dir,
+                    )
+                )
 
     # Save the data, return the ZIP file paths
     saved_files = list(set(saved_files))
@@ -63,16 +95,17 @@ def download_crop_sentinelhub(
     print()
     return zip_path
 
+
 def _crop_monthly_timeseries(
-        product_key: str,
-        id:str,
-        bands: list[str],
-        res: int,
-        geometry_gdf: gpd.GeoDataFrame,
-        total_start_date: str,
-        total_end_date: str,
-        job_dir: str
-        )->list[str]:
+    product_key: str,
+    id: str,
+    bands: list[str],
+    res: int,
+    geometry_gdf: gpd.GeoDataFrame,
+    total_start_date: str,
+    total_end_date: str,
+    job_dir: str,
+) -> list[str]:
     """Creates and crops monthly composites of the specified product over the given geometry and returns an organize list of filepaths to compress.
     Args:
         product_key (str): The ID of the product.
@@ -87,7 +120,7 @@ def _crop_monthly_timeseries(
     """
     current_start = datetime.strptime(total_start_date, "%Y-%m-%d")
     final_end = datetime.strptime(total_end_date, "%Y-%m-%d")
-    
+
     saved_files = []
     is_index_data = product_key not in ["images", "AOT", "WVP"]
 
@@ -99,35 +132,50 @@ def _crop_monthly_timeseries(
         next_month = current_start + relativedelta(months=1)
         current_end = next_month if next_month < final_end else final_end
         logger.info(f"Processing month: {current_start.strftime('%Y-%m')}")
-        
+
         try:
             # Fetch the Monthly Composite
             data = _get_sentinelhub_bands_data(
-                id, bands, res, geometry_gdf, 
-                current_start.strftime("%Y-%m-%d"), 
+                id,
+                bands,
+                res,
+                geometry_gdf,
+                current_start.strftime("%Y-%m-%d"),
                 current_end.strftime("%Y-%m-%d"),
             )
-            
+
             if data and len(data) > 0:
                 # Pre-process raw data array for indexes
                 raw_array = data[0].astype(np.float32)  # Ensure format
-                raw_array = np.moveaxis(raw_array, -1, 0)  # Switch dimensions (H, W, C) -> (C, H, W)
-                raw_array = np.nan_to_num(raw_array, nan=0.0, posinf=0.0, neginf=0.0)  # Normalize anomalous values
+                raw_array = np.moveaxis(
+                    raw_array, -1, 0
+                )  # Switch dimensions (H, W, C) -> (C, H, W)
+                raw_array = np.nan_to_num(
+                    raw_array, nan=0.0, posinf=0.0, neginf=0.0
+                )  # Normalize anomalous values
 
-                if id.lower() in SPECTRAL_INDICES_DATA.keys():  # Clip for spectral indices
-                    logger.debug(f"Spectral index '{id.upper()}' detected. Clipping data (-1.0, 1.0)")
+                if (
+                    id.lower() in SPECTRAL_INDICES_DATA.keys()
+                ):  # Clip for spectral indices
+                    logger.debug(
+                        f"Spectral index '{id.upper()}' detected. Clipping data (-1.0, 1.0)"
+                    )
                     low, high = (0.0, 1.0) if id.lower() == "tci" else (-1.0, 1.0)
                     raw_array = np.clip(raw_array, low, high)
 
                 width, height = raw_array.shape[2], raw_array.shape[1]  # Get dimensions
 
                 # Get BBox and correct transform function
-                _, bbox, __, __= _get_sentinelhub_request_params(id, bands, res, geometry_gdf)
+                _, bbox, __, __ = _get_sentinelhub_request_params(
+                    id, bands, res, geometry_gdf
+                )
                 res_x = (bbox.max_x - bbox.min_x) / width
                 res_y = (bbox.max_y - bbox.min_y) / height
                 transform_tuple = (bbox.min_x, res_x, 0, bbox.max_y, 0, -res_y)
-                bbox_transform = Affine.from_gdal(*transform_tuple)  # transform is now simple because units are METERS
-               
+                bbox_transform = Affine.from_gdal(
+                    *transform_tuple
+                )  # transform is now simple because units are METERS
+
                 # Get mosaic metadata
                 target_crs = f"EPSG:{bbox.crs.value}"
                 parcel_geometry = geometry_gdf.to_crs(target_crs).geometry.values[0]
@@ -143,67 +191,85 @@ def _crop_monthly_timeseries(
                 }
 
                 # Crop stack data from geometry
-                cropped_data, cropped_meta = crop_mosaic(raw_array, meta, parcel_geometry)
+                cropped_data, cropped_meta = crop_mosaic(
+                    raw_array, meta, parcel_geometry
+                )
 
                 # Build filepath to save cropped data
-                resolution_tag=f"{str(res)}m"
+                resolution_tag = f"{str(res)}m"
 
                 if not is_index_data:
-                    product_prefix = product_key 
+                    product_prefix = product_key
                     subfolder = f"R{resolution_tag}"
                     for i, band_id in enumerate(bands):
                         # Isolate a single band (H, W) but keep it 3D for the saver: (1, H, W)
-                        single_band_data = cropped_data[i:i+1, :, :]
-                        
+                        single_band_data = cropped_data[i : i + 1, :, :]
+
                         # Update meta for a single channel
                         single_band_meta = cropped_meta.copy()
                         single_band_meta.update({"count": 1})
 
                         saved_files.extend(
                             save_cropped_data(
-                                job_dir=job_dir, 
-                                product_key=product_key, 
-                                saved_files=saved_files, 
+                                job_dir=job_dir,
+                                product_key=product_key,
+                                saved_files=saved_files,
                                 product_prefix=product_prefix,
-                                subfolder=subfolder, 
+                                subfolder=subfolder,
                                 file_id=band_id,
-                                year=year_str, 
+                                year=year_str,
                                 month=month_str,
-                                resolution_tag=resolution_tag, 
-                                out_image=single_band_data, 
-                                out_meta=single_band_meta
+                                resolution_tag=resolution_tag,
+                                out_image=single_band_data,
+                                out_meta=single_band_meta,
                             )
                         )
                 else:
-                    product_prefix = os.path.join("indices", product_key) if product_key != "TCI" else product_key
+                    product_prefix = (
+                        os.path.join("indices", product_key)
+                        if product_key != "TCI"
+                        else product_key
+                    )
                     subfolder = ""
-                
+
                     # Generate path and save files
                     saved_files.extend(
                         save_cropped_data(
-                            job_dir=job_dir, product_key=product_key, saved_files= saved_files, product_prefix=product_prefix,
-                            subfolder=subfolder, file_id=id, year=year_str, month=month_str,
-                            resolution_tag=resolution_tag, out_image=cropped_data, out_meta=cropped_meta)
+                            job_dir=job_dir,
+                            product_key=product_key,
+                            saved_files=saved_files,
+                            product_prefix=product_prefix,
+                            subfolder=subfolder,
+                            file_id=id,
+                            year=year_str,
+                            month=month_str,
+                            resolution_tag=resolution_tag,
+                            out_image=cropped_data,
+                            out_meta=cropped_meta,
                         )
+                    )
 
         except Exception as e:
-            logger.error(f"Failed to fetch data for {current_start.strftime('%Y-%m')}: {e}")
+            logger.error(
+                f"Failed to fetch data for {current_start.strftime('%Y-%m')}: {e}"
+            )
 
-        # Continue with next month        
+        # Continue with next month
         index_date += 1
         current_start = next_month
 
     return saved_files
 
+
 def _get_sentinelhub_bands_data(
-        id:str,
-        bands: list[str],
-        res: int,
-        geometry_gdf: gpd.GeoDataFrame,
-        start_date: str,
-        end_date: str,
-        max_cloud_concentration: float=0.5
-    ):
+    id: str,
+    bands: list[str],
+    res: int,
+    geometry_gdf: gpd.GeoDataFrame,
+    start_date: str,
+    end_date: str,
+    max_cloud_concentration: float = 0.5,
+):
     """Get Sentinel-2 band data via `SentinelHubRequest`.
     Args:
         id (str): Product key or spectral index ID.
@@ -218,10 +284,14 @@ def _get_sentinelhub_bands_data(
             Band data is presented in the same order as in the `bands` arg. To access a specific band, use `band_data = data[0][:, :, band_index]`
     """
     # Get request parameters
-    evalscript, bbox, width_px, height_px = _get_sentinelhub_request_params(id, bands, res, geometry_gdf)
+    evalscript, bbox, width_px, height_px = _get_sentinelhub_request_params(
+        id, bands, res, geometry_gdf
+    )
 
     if width_px > 2500 or height_px > 2500:
-        logger.warning("WARNING: Image size cannot be greater than 2500px on any dimension for current Sentinehl Hub request. Try the SH implementation for large images if you must.")
+        logger.warning(
+            "WARNING: Image size cannot be greater than 2500px on any dimension for current Sentinehl Hub request. Try the SH implementation for large images if you must."
+        )
         width_px = min(width_px, 2500)
         height_px = min(height_px, 2500)
         logger.warning(f"Capping dimensions at {width_px}x{height_px}")
@@ -233,10 +303,12 @@ def _get_sentinelhub_bands_data(
         evalscript=evalscript,
         input_data=[
             SentinelHubRequest.input_data(
-                data_collection=DataCollection.SENTINEL2_L2A.define_from("s2l2a", service_url=config.sh_base_url),
+                data_collection=DataCollection.SENTINEL2_L2A.define_from(
+                    "s2l2a", service_url=config.sh_base_url
+                ),
                 time_interval=(start_date, end_date),
                 maxcc=max_cloud_concentration,
-                mosaicking_order= 'leastCC',  # least cloudy
+                mosaicking_order="leastCC",  # least cloudy
             )
         ],
         responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
@@ -246,15 +318,16 @@ def _get_sentinelhub_bands_data(
     )
 
     data = sh_request.get_data()
-    
+
     return data
 
+
 def _get_sentinelhub_request_params(
-        id: str,
-        bands: list[str],
-        res: int,
-        geometry_gdf: gpd.GeoDataFrame,
-    )->tuple:
+    id: str,
+    bands: list[str],
+    res: int,
+    geometry_gdf: gpd.GeoDataFrame,
+) -> tuple:
     """Get all SentinelHubRequest necessary parameters for satellite data download.
     Args:
         id (str):
@@ -277,12 +350,13 @@ def _get_sentinelhub_request_params(
     utm_gdf = geometry_gdf.to_crs(utm_crs)
     minx, miny, maxx, maxy = utm_gdf.total_bounds
     print()
-    logger.debug(f"Geometry Size (m): {round(maxx - minx, 3)} x {round(maxy - miny, 2)} m")
-    
+    logger.debug(
+        f"Geometry Size (m): {round(maxx - minx, 3)} x {round(maxy - miny, 2)} m"
+    )
+
     # Get BBox data from geometry
     bbox = BBox(
-        bbox=tuple(geometry_gdf.to_crs("EPSG:4326").total_bounds),
-        crs=CRS.WGS84
+        bbox=tuple(geometry_gdf.to_crs("EPSG:4326").total_bounds), crs=CRS.WGS84
     )
 
     # Get size in px
@@ -292,18 +366,23 @@ def _get_sentinelhub_request_params(
 
     return evalscript, bbox, width_px, height_px
 
+
 if __name__ == "__main__":
     init = datetime.now()
     print()
-    logger.info(f"--- STARTING SENTINELHUB PIPELINE ---\n")
+    logger.info("--- STARTING SENTINELHUB PIPELINE ---\n")
 
     geometry_gdf = gpd.read_file("../misc/geometry.geojson")
-    start_date ="2025-03-01"
-    end_date ="2025-03-31"
+    start_date = "2025-03-01"
+    end_date = "2025-03-31"
     product_key = "images"
     job_dir = "/home/miguel/Dev/satellite-crop-merge-ds/app/results/123/88d46fa7"
 
-    zip_path = download_crop_sentinelhub(geometry_gdf, start_date, end_date, product_key, job_dir)
+    zip_path = download_crop_sentinelhub(
+        geometry_gdf, start_date, end_date, product_key, job_dir
+    )
 
     print()
-    logger.info(f"--- TRANSFERENCE TIME DOWNLOADING FOR {product_key.upper()} FROM {start_date} TO {end_date}: {datetime.now() - init} ---\n")
+    logger.info(
+        f"--- TRANSFERENCE TIME DOWNLOADING FOR {product_key.upper()} FROM {start_date} TO {end_date}: {datetime.now() - init} ---\n"
+    )

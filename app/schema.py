@@ -45,37 +45,27 @@ This application is an initiative developed by the Khaos research group.
 
 ## Contact
 If you have any questions, please contact us at [edaan@uma.com](mailto:edaan@uma.com).""",
-    "labels": ["web-application", "data-service", "satellite", "crop", "merge", "agrotech"],
+    "labels": [
+        "web-application",
+        "data-service",
+        "satellite",
+        "crop",
+        "merge",
+        "agrotech",
+    ],
     "jsonforms:schema": {
         "type": "object",
         "properties": {
-            "username": {
-                "type": "string",
-                "readOnly": True
-            },
-            "password": {
-                "type": "string",
-                "readOnly": True
-            },
+            "username": {"type": "string", "readOnly": True},
+            "password": {"type": "string", "readOnly": True},
         },
     },
     "jsonforms:uischema": {
         "type": "VerticalLayout",
         "elements": [
-            {
-                "type": "Label",
-                "text": "Credentials"
-            },
-            {
-                "type": "Control",
-                "scope": "#/properties/username",
-                "label": "Username"
-             },
-            {
-                "type": "Control",
-                "scope": "#/properties/password",
-                "label": "Password"
-            },
+            {"type": "Label", "text": "Credentials"},
+            {"type": "Control", "scope": "#/properties/username", "label": "Username"},
+            {"type": "Control", "scope": "#/properties/password", "label": "Password"},
         ],
     },
     "jsonforms:data": {"username": "", "password": ""},

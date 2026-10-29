@@ -1,4 +1,3 @@
-
 import math
 import os
 from pathlib import Path
@@ -18,7 +17,10 @@ logger = structlog.get_logger()
 
 # --- GEOSPATIAL LOGIC ---
 
-def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origin: str=None) -> list[str]:
+
+def get_sentinel_tiles_from_geometry(
+    geometry_gdf: gpd.GeoDataFrame, geometry_origin: str = None
+) -> list[str]:
     """Get the Sentinel-2 tile/tiles the geometry is comprised in. Also, insert the geometry origin on last tiles' ID for filenaming purposes...
     Args:
         geometry_gdf (gpd.GeoDataFrame): The parcel's geometry.
@@ -32,28 +34,33 @@ def get_sentinel_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_or
         geom_suffix = geometry_origin
 
     if not SENTINEL2_GRIDS_FILE or not os.path.exists(SENTINEL2_GRIDS_FILE):
-        raise FileNotFoundError(f"GRID_FILE is not set or does not exist: {SENTINEL2_GRIDS_FILE}")
-        
+        raise FileNotFoundError(
+            f"GRID_FILE is not set or does not exist: {SENTINEL2_GRIDS_FILE}"
+        )
+
     # Sentinel-2 grid
     grids_geojson = gpd.read_file(SENTINEL2_GRIDS_FILE)
 
     # Ensure same CRS
     grids_metric = grids_geojson.to_crs("EPSG:3857")
     gdf_metric = geometry_gdf.to_crs("EPSG:3857")
-    
+
     # Spatial intersection
     result = gpd.overlay(gdf_metric, grids_metric, how="intersection")
     tile_ids = result["Name"].unique().tolist()
-    
+
     # Filter overlapping tiles using the precise file geometries
     tile_ids = remove_overlapping_tiles(tile_ids, gdf_metric, grids_metric)
-    
+
     if geom_suffix is not None and tile_ids:
         tile_ids[-1] = f"{tile_ids[-1]}_{str(geom_suffix)}"
 
     return tile_ids
 
-def remove_overlapping_tiles(tile_ids: list[str], gdf_metric: gpd.GeoDataFrame, grids_metric: gpd.GeoDataFrame)->list[str]:
+
+def remove_overlapping_tiles(
+    tile_ids: list[str], gdf_metric: gpd.GeoDataFrame, grids_metric: gpd.GeoDataFrame
+) -> list[str]:
     """
     Retrieves tile geometry and checks it geometry is completely contained in it.
     If so, returns the first tile to do so.
@@ -67,27 +74,32 @@ def remove_overlapping_tiles(tile_ids: list[str], gdf_metric: gpd.GeoDataFrame, 
     for tile in tile_ids:
         if parcel_area_m == 0:
             continue
-            
+
         # Extract the precise local geometric feature matching this tile name
         tile_feat = grids_metric[grids_metric["Name"] == tile].geometry.iloc[0]
-        
+
         # Calculate precise overlap coverage ratio in meters
         intersection_area = tile_feat.intersection(parcel_geom_m).area
         coverage = intersection_area / parcel_area_m
-        
+
         logger.debug(f"Tile: {tile} | Metric Coverage: {coverage:.4f}")
-        
+
         if coverage > best_coverage:
             best_coverage = coverage
             best_tile = tile
 
     # If the absolute best tile cleanly fits your parcel, drop the partial fragments
     if best_coverage >= 0.999 and best_tile is not None:
-        logger.debug(f"Geometry is {int(best_coverage*100)}% covered by tile {best_tile}!")
+        logger.debug(
+            f"Geometry is {int(best_coverage * 100)}% covered by tile {best_tile}!"
+        )
         tile_ids = [best_tile]
     return tile_ids
 
-def get_tile_coverage_of_geometry(tile_geometry, geometry_gdf: gpd.GeoDataFrame) -> float:
+
+def get_tile_coverage_of_geometry(
+    tile_geometry, geometry_gdf: gpd.GeoDataFrame
+) -> float:
     """
     Gets the tile coverage of the given geometry.
     Calculates the ratio of the geometry's area that falls within the tile bounding box.
@@ -123,8 +135,9 @@ def get_tile_coverage_of_geometry(tile_geometry, geometry_gdf: gpd.GeoDataFrame)
     # 5. Compute metric ratio mapping
     intersection_area = tile_poly_m.intersection(parcel_geom_m).area
     coverage_ratio = intersection_area / parcel_geom_m.area
-    
+
     return float(coverage_ratio)
+
 
 def mask_tif_from_minio(
     minio_client,
@@ -147,7 +160,6 @@ def mask_tif_from_minio(
         # 2. Load bytes
         with MemoryFile(tif_bytes) as memfile:
             with memfile.open() as src:
-
                 # 3. Reproject geometry to raster CRS
                 gdf_reprojected = geometry.to_crs(src.crs)
 
@@ -158,7 +170,7 @@ def mask_tif_from_minio(
                 ]
 
                 if not shapes:
-                    logger.warning(f"No valid geometries detected.")
+                    logger.warning("No valid geometries detected.")
                     return False
 
                 # 4. Mask raster
@@ -175,13 +187,15 @@ def mask_tif_from_minio(
                 output_path.parent.mkdir(parents=True, exist_ok=True)
 
                 out_meta = src.meta.copy()
-                out_meta.update({
-                    "driver": "GTiff",
-                    "height": out_image.shape[1],
-                    "width": out_image.shape[2],
-                    "transform": out_transform,
-                    "compress": "deflate",
-                })
+                out_meta.update(
+                    {
+                        "driver": "GTiff",
+                        "height": out_image.shape[1],
+                        "width": out_image.shape[2],
+                        "transform": out_transform,
+                        "compress": "deflate",
+                    }
+                )
 
                 with rasterio.open(output_path, "w", **out_meta) as dst:
                     dst.write(out_image)
@@ -192,7 +206,10 @@ def mask_tif_from_minio(
         logger.warning(f"Failed masking {object_name}: {e}")
         raise e
 
-def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origin: str=None) -> list[str]:
+
+def get_aster_tiles_from_geometry(
+    geometry_gdf: gpd.GeoDataFrame, geometry_origin: str = None
+) -> list[str]:
     """
     Returns ASTER GDEM tile IDs covering the input geometry. Also, insert the geometry origin on all tiles' ID for filenaming purposes...
 
@@ -228,13 +245,14 @@ def get_aster_tiles_from_geometry(geometry_gdf: gpd.GeoDataFrame, geometry_origi
                 lon_prefix = "E" if lon >= 0 else "W"
 
                 tile_id = f"{lat_prefix}{abs(lat):02d}{lon_prefix}{abs(lon):03d}"
-                
+
                 if geom_suffix is not None:
                     tile_id += f"_{str(geom_suffix)}"  # append suffix
-                
+
                 tiles.add(tile_id)
 
     return sorted(tiles)
+
 
 def get_year_month_pair(start_date: str, end_date: str) -> list[tuple]:
     """Generates a (`YYYY`, `NN-MMM`) tuple list of the given temporal range.
@@ -255,8 +273,8 @@ def get_year_month_pair(start_date: str, end_date: str) -> list[tuple]:
 
     while current <= end:
         year = current.year
-        month_num = current.strftime("%m")   # 01, 02, ...
-        month_str = current.strftime("%b")   # Jan, Feb, ...
+        month_num = current.strftime("%m")  # 01, 02, ...
+        month_str = current.strftime("%b")  # Jan, Feb, ...
 
         year_months.append((str(year), f"{month_num}-{month_str}"))
 
