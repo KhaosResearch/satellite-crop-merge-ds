@@ -13,8 +13,7 @@ SCRIPT_NAME = os.getenv("SCRIPT_NAME", default="/")
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-RESULTS_DIR_NAME = "results"
-RESULTS_FULL_PATH = ROOT_DIR / RESULTS_DIR_NAME
+RESULTS_FULL_PATH = ROOT_DIR / "results"
 
 ASSETS_DIR = ROOT_DIR / "assets"
 MULTILANGUAGE_FILEPATH = ASSETS_DIR / "multilanguage.csv"

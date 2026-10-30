@@ -158,6 +158,7 @@ app = gr.mount_gradio_app(
     app,
     interface,
     path="/",
+    allowed_paths=[str(RESULTS_FULL_PATH)],
     auth=authenticate_user,
     theme="gradio/monochrome",
     head=JS_RECIEVER,

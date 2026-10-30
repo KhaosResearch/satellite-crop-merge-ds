@@ -8,9 +8,7 @@ from folium.plugins import Draw
 from pathlib import Path
 from structlog import getLogger
 
-from config.config import MULTILANGUAGE_FILEPATH, get_draw_map_custom_script
-
-ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+from config.config import ASSETS_DIR, MULTILANGUAGE_FILEPATH, get_draw_map_custom_script
 
 logger = getLogger(__file__)
 
